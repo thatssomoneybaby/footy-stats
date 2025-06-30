@@ -1,13 +1,7 @@
 {
   "functions": {
-    "api/index.js": {
+    "api/*.js": {
       "runtime": "@vercel/node"
     }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api"
-    }
-  ]
+  }
 }
