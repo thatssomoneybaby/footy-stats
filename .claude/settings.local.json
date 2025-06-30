@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm start)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(sqlite3:*)",
+      "Bash(pkill:*)",
+      "Bash(true)"
+    ],
+    "deny": []
+  }
+}

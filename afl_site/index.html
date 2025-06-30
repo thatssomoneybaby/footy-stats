@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AFL Stats</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'afl-blue': '#002b5c',
+            'afl-blue-dark': '#001a3d',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50">
+  <!-- Mobile menu button -->
+  <button data-drawer-target="default-sidebar" data-drawer-toggle="default-sidebar" aria-controls="default-sidebar" type="button" class="inline-flex items-center p-2 mt-2 ml-3 text-sm text-gray-500 rounded-lg lg:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600">
+     <span class="sr-only">Open sidebar</span>
+     <svg class="w-6 h-6" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+     <path clip-rule="evenodd" fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z"></path>
+     </svg>
+  </button>
+
+  <!-- Sidebar -->
+  <aside id="default-sidebar" class="fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full lg:translate-x-0 border-r border-gray-200 bg-white shadow-lg" aria-label="Sidebar">
+    <div class="h-full px-3 py-4 overflow-y-auto">
+      <a href="index.html" class="flex items-center ps-2.5 mb-8">
+        <span class="self-center text-xl font-bold text-afl-blue">AFL Stats</span>
+      </a>
+      <nav class="space-y-2">
+        <a href="index.html" class="flex items-center p-3 text-gray-900 rounded-lg bg-blue-50 border-l-4 border-afl-blue font-medium">
+          <span class="ml-3">Home</span>
+        </a>
+        <a href="years.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+          <span class="ml-3">Years</span>
+        </a>
+        <a href="teams.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+          <span class="ml-3">Teams</span>
+        </a>
+        <a href="players.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+          <span class="ml-3">Players</span>
+        </a>
+        <a href="trophy-room.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+          <span class="ml-3">Trophy Room</span>
+        </a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="lg:ml-64 min-h-screen">
+    <header class="bg-afl-blue text-white py-8 px-6 shadow-lg">
+      <h1 class="text-3xl font-bold mb-2">AFL Historical Stats</h1>
+      <p class="text-blue-100">Season-by-season breakdown since 1897</p>
+    </header>
+    
+    <main class="p-6">
+      <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <h2 class="text-2xl font-semibold text-gray-900 mb-4">Welcome to AFL Historical Stats</h2>
+          <p class="text-gray-600 mb-6">Explore comprehensive AFL statistics from 1897 to present day. Browse by season, team, or individual player performance.</p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a href="years.html" class="block p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">
+              <h3 class="font-semibold text-afl-blue mb-2">Browse by Year</h3>
+              <p class="text-sm text-gray-600">View matches and statistics for each AFL season</p>
+            </a>
+            <a href="teams.html" class="block p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors">
+              <h3 class="font-semibold text-green-700 mb-2">Team Statistics</h3>
+              <p class="text-sm text-gray-600">Explore team performance and historical data</p>
+            </a>
+            <a href="players.html" class="block p-4 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors">
+              <h3 class="font-semibold text-purple-700 mb-2">Player Statistics</h3>
+              <p class="text-sm text-gray-600">Individual player stats and career summaries</p>
+            </a>
+            <a href="trophy-room.html" class="block p-4 bg-yellow-50 rounded-lg border border-yellow-200 hover:bg-yellow-100 transition-colors">
+              <h3 class="font-semibold text-yellow-700 mb-2">🏆 Trophy Room</h3>
+              <p class="text-sm text-gray-600">Record holders for every statistical category</p>
+            </a>
+          </div>
+        </div>
+
+        <!-- Dynamic Content Section -->
+        <div class="space-y-6">
+          <!-- Upcoming Games -->
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
+              <span class="text-3xl mr-3">📅</span>
+              Upcoming Games
+            </h2>
+            <div id="upcoming-games-loading" class="text-center py-8">
+              <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-afl-blue"></div>
+              <p class="mt-3 text-sm text-gray-600">Loading upcoming games...</p>
+            </div>
+            <div id="upcoming-games-content" class="hidden space-y-4">
+              <!-- Upcoming games will be populated here -->
+            </div>
+            <div id="upcoming-games-error" class="hidden text-center py-8">
+              <p class="text-gray-600">No upcoming games available</p>
+            </div>
+          </div>
+
+          <!-- AFL Insights -->
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
+              <span class="text-3xl mr-3">📊</span>
+              AFL Insights
+            </h2>
+            <div id="insights-loading" class="text-center py-8">
+              <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-afl-blue"></div>
+              <p class="mt-3 text-sm text-gray-600">Loading insights...</p>
+            </div>
+            <div id="insights-content" class="hidden space-y-6">
+              <!-- Insights will be populated here -->
+            </div>
+            <div id="insights-error" class="hidden text-center py-8">
+              <p class="text-gray-600">Unable to load insights</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/home.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.6.5/flowbite.min.js"></script>
+</body>
+</html>

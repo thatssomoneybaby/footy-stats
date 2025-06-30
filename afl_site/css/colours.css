@@ -1,0 +1,93 @@
+:root {
+  /* Adelaide */
+  --adelaide-light-blue: #004B8D;
+  --adelaide-dark-blue: #002B5C;
+  --adelaide-red: #E21937;
+  --adelaide-yellow: #FFD200;
+
+  /* Brisbane */
+  --brisbane-dark-pink: #A30046;
+  --brisbane-deep-yellow: #FDBE57;
+  --brisbane-blue: #0055A3;
+
+  /* Carlton */
+  --carlton-dark-navy: #031A29;
+  --carlton-white: #FFFFFF;
+
+  /* Essendon */
+  --essendon-red: #CC2031;
+  --essendon-black: #010101;
+  --essendon-gray: #BDBEC0;
+
+  /* Fitzroy */
+  --fitzroy-red: #DC0000;
+  --fitzroy-blue: #0D3FBD;
+  --fitzroy-yellow: #FDC613;
+
+  /* Fremantle */
+  --fremantle-indigo: #2A0D54;
+  --fremantle-gray: #A2ACB4;
+  --fremantle-black: #000000;
+  --fremantle-white: #FFFFFF;
+
+  /* Geelong */
+  --geelong-dark-blue: #002B5C;
+  --geelong-white: #FFFFFF;
+
+  /* Gold Coast */
+  --goldcoast-red: #E02112;
+  --goldcoast-yellow: #FFDD00;
+  --goldcoast-blue: #0079C1;
+  --goldcoast-white: #FFFFFF;
+
+  /* GWS */
+  --gws-orange: #F47920;
+  --gws-white: #FFFFFF;
+
+  /* Hawthorn */
+  --hawthorn-brown: #4D2004;
+  --hawthorn-yellow: #FBBF15;
+  --hawthorn-black: #100F0D;
+  --hawthorn-white: #FFFFFF;
+
+  /* Melbourne */
+  --melbourne-dark-blue: #0F1131;
+  --melbourne-red: #CC2031;
+
+  /* North Melbourne */
+  --north-blue: #1A3B8E;
+  --north-white: #FFFFFF;
+  --north-light-blue: #C4D1E5;
+
+  /* Port Adelaide */
+  --portadelaide-black: #000000;
+  --portadelaide-white: #FFFFFF;
+  --portadelaide-blue: #008AAB;
+
+  /* Richmond */
+  --richmond-yellow: #FFD200;
+  --richmond-black: #000000;
+
+  /* St Kilda */
+  --stkilda-black: #000000;
+  --stkilda-white: #FFFFFF;
+  --stkilda-red: #ED1B2F;
+
+  /* Sydney */
+  --sydney-red: #E1251B;
+  --sydney-white: #FFFFFF;
+
+  /* West Coast */
+  --westcoast-yellow: #F2A900;
+  --westcoast-blue: #003087;
+
+  /* Western Bulldogs */
+  --bulldogs-blue: #20539D;
+  --bulldogs-dark-blue: #213270;
+  --bulldogs-white: #FFFFFF;
+  --bulldogs-red: #BD002B;
+
+  /* University */
+  --university-black: #000000;
+  --university-blue: #0A50A1;
+}
