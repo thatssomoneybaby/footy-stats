@@ -1,0 +1,3 @@
+node_modules/
+afl_api/afl-api/afl_data.sqlite
+.env.local.env.local
