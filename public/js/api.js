@@ -1,6 +1,6 @@
-const BASE = process.env.NODE_ENV === 'production' 
-  ? 'https://your-app-name.vercel.app/api' 
-  : 'http://localhost:3000';
+const BASE = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3000' 
+  : '/api';
 
 export async function getYears() {
   const res = await fetch(`${BASE}/years`);

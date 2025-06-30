@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AFL Trophy Room</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'afl-blue': '#002b5c',
+            'afl-blue-dark': '#001a3d',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50">
+  <!-- Mobile menu button -->
+  <button data-drawer-target="default-sidebar" data-drawer-toggle="default-sidebar" aria-controls="default-sidebar" type="button" class="inline-flex items-center p-2 mt-2 ml-3 text-sm text-gray-500 rounded-lg lg:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600">
+     <span class="sr-only">Open sidebar</span>
+     <svg class="w-6 h-6" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+     <path clip-rule="evenodd" fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z"></path>
+     </svg>
+  </button>
+
+  <!-- Sidebar -->
+  <aside id="default-sidebar" class="fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full lg:translate-x-0 border-r border-gray-200 bg-white shadow-lg" aria-label="Sidebar">
+    <div class="h-full px-3 py-4 overflow-y-auto">
+      <a href="index.html" class="flex items-center ps-2.5 mb-8">
+        <span class="self-center text-xl font-bold text-afl-blue">AFL Stats</span>
+      </a>
+      <nav class="space-y-2">
+        <a href="index.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+          <span class="ml-3">Home</span>
+        </a>
+        <a href="years.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+          <span class="ml-3">Years</span>
+        </a>
+        <a href="teams.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+          <span class="ml-3">Teams</span>
+        </a>
+        <a href="players.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+          <span class="ml-3">Players</span>
+        </a>
+        <a href="trophy-room.html" class="flex items-center p-3 text-gray-900 rounded-lg bg-blue-50 border-l-4 border-afl-blue font-medium">
+          <span class="ml-3">Trophy Room</span>
+        </a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="lg:ml-64 min-h-screen">
+    <header class="bg-afl-blue text-white py-8 px-6 shadow-lg">
+      <h1 class="text-3xl font-bold mb-2">🏆 AFL Trophy Room</h1>
+      <p class="text-blue-100">Record holders for every statistic</p>
+    </header>
+    
+    <main class="p-6">
+      <div class="max-w-7xl mx-auto">
+        <!-- Hall of Records intro -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">🏆 AFL Hall of Records</h2>
+          <p class="text-gray-600 mb-6">The definitive collection of AFL statistical records. Explore the top 10 all-time leaders in every category, from legendary goal scorers to defensive specialists and everything in between.</p>
+          
+          <!-- Category navigation -->
+          <div id="category-tabs" class="flex flex-wrap gap-2 mb-4">
+            <!-- Category buttons will be populated here -->
+          </div>
+        </div>
+
+        <!-- Loading state -->
+        <div id="loading" class="text-center py-12">
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-afl-blue"></div>
+          <p class="mt-4 text-gray-600">Loading Hall of Records...</p>
+        </div>
+
+        <!-- Hall of Records content -->
+        <div id="hall-of-records" class="hidden">
+          <!-- Current category display -->
+          <div id="current-category" class="mb-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 id="category-title" class="text-2xl font-bold text-gray-900 flex items-center">
+                <!-- Category title will be populated here -->
+              </h3>
+              <div class="text-sm text-gray-500">
+                Top 10 All-Time Career Leaders
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats grid for current category -->
+          <div id="stats-grid" class="space-y-8">
+            <!-- Stat records will be populated here -->
+          </div>
+        </div>
+
+        <!-- Individual stat modal -->
+        <div id="stat-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
+          <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
+              <h2 id="modal-stat-title" class="text-2xl font-semibold text-gray-900"></h2>
+              <button id="close-stat-modal" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            
+            <div class="p-6">
+              <div id="modal-top-10" class="space-y-4">
+                <!-- Top 10 list will be populated here -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/trophy-room.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.6.5/flowbite.min.js"></script>
+</body>
+</html>

@@ -1,21 +1,32 @@
 import express from 'express';
-import Database from 'better-sqlite3';
 import cors from 'cors';
+import { createClient } from '@libsql/client';
+import { config } from 'dotenv';
+
+config();
 
 const app = express();
 app.use(cors()); // Allow frontend to access this
 
-const db = new Database('./afl_data.sqlite', { readonly: true });
+const db = createClient({
+  url: process.env.TURSO_DB_URL,
+  authToken: process.env.TURSO_DB_AUTH_TOKEN,
+});
 
 // Endpoint: get all available years
-app.get('/years', (_, res) => {
-  const years = db.prepare(`
-    SELECT DISTINCT substr(match_date, 1, 4) AS year
-    FROM AFL_data
-    WHERE year GLOB '[1-2][0-9][0-9][0-9]'
-    ORDER BY year DESC
-  `).all();
-  res.json(years.map(row => row.year));
+app.get('/years', async (_, res) => {
+  try {
+    const years = await db.execute(`
+      SELECT DISTINCT substr(match_date, 1, 4) AS year
+      FROM AFL_data
+      WHERE year GLOB '[1-2][0-9][0-9][0-9]'
+      ORDER BY year DESC
+    `);
+    res.json(years.rows.map(row => row.year));
+  } catch (error) {
+    console.error('Error fetching years:', error);
+    res.status(500).json({ error: 'Failed to fetch years' });
+  }
 });
 
 // Endpoint: get all matches for a given year
