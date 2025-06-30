@@ -1,6 +1,7 @@
-const BASE = process.env.NODE_ENV === 'production' 
-  ? 'https://your-app-name.vercel.app/api' 
-  : 'http://localhost:3000';
+// Always hit the Vercel‑style serverless functions at /api/*.
+// In dev (`npm run dev` with Vercel CLI or a local static file server),
+// the functions are still mounted at http://localhost:3000/api/*.
+const BASE = '/api';
 
 export async function getYears() {
   const res = await fetch(`${BASE}/years`);
