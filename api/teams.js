@@ -1,10 +1,5 @@
 import { createClient } from '@libsql/client';
 
-const db = createClient({
-  url: process.env.TURSO_DB_URL,
-  authToken: process.env.TURSO_DB_AUTH_TOKEN,
-});
-
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -15,6 +10,12 @@ export default async function handler(req, res) {
       hasUrl: !!process.env.TURSO_DB_URL,
       hasToken: !!process.env.TURSO_DB_AUTH_TOKEN,
       urlPrefix: process.env.TURSO_DB_URL?.substring(0, 20)
+    });
+
+    // Create the client inside the handler to ensure env vars are loaded
+    const db = createClient({
+      url: process.env.TURSO_DB_URL,
+      authToken: process.env.TURSO_DB_AUTH_TOKEN,
     });
 
     const teams = await db.execute(`
