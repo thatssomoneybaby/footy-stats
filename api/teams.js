@@ -11,6 +11,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Environment check:', {
+      hasUrl: !!process.env.TURSO_DB_URL,
+      hasToken: !!process.env.TURSO_DB_AUTH_TOKEN,
+      urlPrefix: process.env.TURSO_DB_URL?.substring(0, 20)
+    });
+
     const teams = await db.execute(`
       SELECT 
         team_name,
@@ -27,9 +33,17 @@ export default async function handler(req, res) {
       ORDER BY team_name
     `);
     
+    console.log('Query successful, rows:', teams.rows.length);
     res.json(teams.rows);
   } catch (error) {
-    console.error('Error fetching teams:', error);
-    res.status(500).json({ error: 'Failed to fetch teams' });
+    console.error('Detailed error:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch teams',
+      details: error.message 
+    });
   }
 }
