@@ -13,6 +13,7 @@ export default async function handler(req, res) {
     });
 
     // Create the client inside the handler to ensure env vars are loaded
+    // Use basic configuration to avoid migration job checking
     const db = createClient({
       url: process.env.TURSO_DB_URL,
       authToken: process.env.TURSO_DB_AUTH_TOKEN,
