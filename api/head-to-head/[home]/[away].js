@@ -43,13 +43,15 @@ export default async function handler(req, res) {
     match_home_team: g.match_home_team,
     match_away_team: g.match_away_team,
     match_winner: g.match_winner,
+    match_home_team_score: g.match_home_team_score,
+    match_away_team_score: g.match_away_team_score,
     // aliases for convenience
     homeTeam: g.match_home_team,
     awayTeam: g.match_away_team,
     winner: g.match_winner,
-    margin: g.match_margin,
     homeScore: g.match_home_team_score,
     awayScore: g.match_away_team_score,
+    margin: g.match_margin,
     match_round: g.match_round
   }));
 
