@@ -22,6 +22,7 @@ export default async function handler(req, res) {
         player_first_name,
         player_last_name,
         player_team,
+        guernsey_number,
         kicks,
         marks,
         handballs,
