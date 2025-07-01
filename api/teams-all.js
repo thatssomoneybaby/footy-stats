@@ -128,11 +128,14 @@ export default async function handler(req, res) {
       
     } else {
       // Teams list endpoint - get all unique team names
+      // Get a large sample to ensure we get all teams and years
       const { data: homeTeams, error: homeError } = await supabase
         .from('afl_data')
         .select('match_home_team, match_date')
         .not('match_home_team', 'is', null)
-        .neq('match_home_team', '');
+        .neq('match_home_team', '')
+        .order('match_date')
+        .range(0, 200000);
 
       if (homeError) {
         console.error('Home teams error:', homeError);
@@ -143,12 +146,16 @@ export default async function handler(req, res) {
         .from('afl_data')
         .select('match_away_team, match_date')
         .not('match_away_team', 'is', null)
-        .neq('match_away_team', '');
+        .neq('match_away_team', '')
+        .order('match_date')
+        .range(0, 200000);
 
       if (awayError) {
         console.error('Away teams error:', awayError);
         throw awayError;
       }
+
+      console.log('Raw teams data:', homeTeams.length, 'home +', awayTeams.length, 'away');
 
       // Combine home and away teams
       const allTeamMatches = [
