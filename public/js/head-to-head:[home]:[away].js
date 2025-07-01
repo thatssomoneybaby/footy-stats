@@ -1,13 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req, res) {
-  const { home, away } = req.query;             // e.g. "North Melbourne" / "Essendon"
+  const { home, away } = req.query;
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_ANON_KEY
   );
 
-  /* 1️⃣  All historical games between the two sides */
   const { data: games, error } = await supabase
     .from('afl_data')
     .select(`
@@ -28,11 +27,11 @@ export default async function handler(req, res) {
 
   if (error) return res.status(500).json({ error });
 
-  /* 2️⃣  Summary wins */
   const summary = { totalGames: games.length, [home]: 0, [away]: 0 };
-  games.forEach(g => summary[g.match_winner] = (summary[g.match_winner] || 0) + 1);
+  games.forEach(g => {
+    summary[g.match_winner] = (summary[g.match_winner] || 0) + 1;
+  });
 
-  /* 3️⃣  Last meeting & biggest wins */
   const lastMeeting = games[0] || null;
   const biggestWins = {};
   games.forEach(g => {
@@ -41,7 +40,6 @@ export default async function handler(req, res) {
     }
   });
 
-  /* 4️⃣  Top performers in the last meeting */
   let topGoals = [], topDisposals = [];
   if (lastMeeting) {
     const { data: players } = await supabase
@@ -49,8 +47,8 @@ export default async function handler(req, res) {
       .select('player_first_name, player_last_name, player_team, goals, disposals')
       .eq('match_id', lastMeeting.match_id);
 
-    topGoals      = [...players].sort((a,b)=>b.goals      - a.goals).slice(0,3);
-    topDisposals  = [...players].sort((a,b)=>b.disposals  - a.disposals).slice(0,3);
+    topGoals     = players.sort((a,b)=>b.goals - a.goals).slice(0,3);
+    topDisposals = players.sort((a,b)=>b.disposals - a.disposals).slice(0,3);
   }
 
   res.status(200).json({

@@ -40,8 +40,10 @@ async function loadUpcomingGames() {
   upcomingGamesLoading.classList.remove('hidden');
   try {
     const games = await getUpcomingGames();
+    const now = Date.now();
+    const upcoming = games.filter(g => Date.parse(g.date) > now);
     upcomingGamesContent.classList.remove('hidden');
-    renderUpcomingGames(games);      // your existing function that builds the cards
+    renderUpcomingGames(upcoming);
   } catch (err) {
     console.error(err);
     upcomingGamesError.classList.remove('hidden');
