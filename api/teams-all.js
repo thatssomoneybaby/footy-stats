@@ -8,6 +8,15 @@ export default async function handler(req, res) {
   const { teamName } = req.query;
 
   try {
+    // Check environment variables
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      console.error('Missing Supabase environment variables');
+      return res.status(500).json({ 
+        error: 'Server configuration error',
+        details: 'Missing database credentials'
+      });
+    }
+
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_ANON_KEY
@@ -121,22 +130,31 @@ export default async function handler(req, res) {
       // Teams list endpoint - get all unique team names
       const { data: homeTeams, error: homeError } = await supabase
         .from('afl_data')
-        .select('match_home_team as team_name, match_date')
+        .select('match_home_team, match_date')
         .not('match_home_team', 'is', null)
         .neq('match_home_team', '');
 
-      if (homeError) throw homeError;
+      if (homeError) {
+        console.error('Home teams error:', homeError);
+        throw homeError;
+      }
 
       const { data: awayTeams, error: awayError } = await supabase
         .from('afl_data')
-        .select('match_away_team as team_name, match_date')
+        .select('match_away_team, match_date')
         .not('match_away_team', 'is', null)
         .neq('match_away_team', '');
 
-      if (awayError) throw awayError;
+      if (awayError) {
+        console.error('Away teams error:', awayError);
+        throw awayError;
+      }
 
       // Combine home and away teams
-      const allTeamMatches = [...homeTeams, ...awayTeams];
+      const allTeamMatches = [
+        ...homeTeams.map(t => ({ team_name: t.match_home_team, match_date: t.match_date })),
+        ...awayTeams.map(t => ({ team_name: t.match_away_team, match_date: t.match_date }))
+      ];
       
       // Aggregate team stats
       const teamStats = {};
@@ -169,6 +187,7 @@ export default async function handler(req, res) {
         .filter(team => team.team_name)
         .sort((a, b) => a.team_name.localeCompare(b.team_name));
       
+      console.log('Teams found:', teams.length, teams.slice(0, 3).map(t => t.team_name));
       res.json(teams);
     }
   } catch (error) {

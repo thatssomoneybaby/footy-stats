@@ -24,29 +24,24 @@ export default async function handler(req, res) {
 
     if (years === 'true') {
       // Years endpoint - get distinct years from matches
-      const { data: yearsList, error } = await supabase
-        .rpc('get_distinct_years');
+      const { data: yearData, error } = await supabase
+        .from('afl_data')
+        .select('match_date')
+        .not('match_date', 'is', null);
       
       if (error) {
         console.error('Years query error:', error);
-        // Fallback to raw SQL if RPC doesn't exist
-        const { data: fallbackYears, error: fallbackError } = await supabase
-          .from('afl_data')
-          .select('match_date')
-          .not('match_date', 'is', null);
-        
-        if (fallbackError) throw fallbackError;
-        
-        const years = [...new Set(
-          fallbackYears
-            .map(row => row.match_date?.substring(0, 4))
-            .filter(year => year && /^\d{4}$/.test(year))
-        )].sort((a, b) => b.localeCompare(a));
-        
-        return res.json(years);
+        throw error;
       }
       
-      res.json(yearsList.map(row => row.year));
+      const years = [...new Set(
+        yearData
+          .map(row => row.match_date?.substring(0, 4))
+          .filter(year => year && /^\d{4}$/.test(year))
+      )].sort((a, b) => b.localeCompare(a));
+      
+      console.log('Years found:', years.length, years.slice(0, 5));
+      return res.json(years);
       
     } else if (year && round) {
       // Specific round matches with team names
