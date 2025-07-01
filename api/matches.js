@@ -15,8 +15,25 @@ export default async function handler(req, res) {
       authToken: process.env.TURSO_DB_AUTH_TOKEN,
     });
 
+    // Optimized query - only select needed columns and add pagination
     const matches = await db.execute({
-      sql: `SELECT * FROM AFL_data WHERE strftime('%Y', match_date) = ?`,
+      sql: `
+        SELECT DISTINCT
+          match_id,
+          match_date,
+          match_round,
+          match_home_team,
+          match_away_team,
+          match_home_team_score,
+          match_away_team_score,
+          match_winner,
+          match_margin,
+          venue_name
+        FROM AFL_data 
+        WHERE strftime('%Y', match_date) = ?
+        ORDER BY match_date DESC
+        LIMIT 100
+      `,
       args: [year]
     });
     

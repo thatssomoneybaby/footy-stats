@@ -18,6 +18,7 @@ export default async function handler(req, res) {
       authToken: process.env.TURSO_DB_AUTH_TOKEN,
     });
 
+    // Optimized query - add pagination and only calculate when needed
     const players = await db.execute({
       sql: `
         SELECT 
@@ -25,8 +26,10 @@ export default async function handler(req, res) {
           player_first_name,
           player_last_name,
           COUNT(DISTINCT match_id) as total_games,
-          SUM(CASE WHEN disposals IS NOT NULL AND disposals != '' THEN CAST(disposals AS INTEGER) ELSE 0 END) as total_disposals,
-          SUM(CASE WHEN goals IS NOT NULL AND goals != '' THEN CAST(goals AS INTEGER) ELSE 0 END) as total_goals,
+          SUM(CASE WHEN disposals IS NOT NULL AND disposals != '' AND CAST(disposals AS INTEGER) > 0 THEN CAST(disposals AS INTEGER) ELSE 0 END) as total_disposals,
+          SUM(CASE WHEN goals IS NOT NULL AND goals != '' AND CAST(goals AS INTEGER) > 0 THEN CAST(goals AS INTEGER) ELSE 0 END) as total_goals,
+          ROUND(AVG(CASE WHEN disposals IS NOT NULL AND disposals != '' AND CAST(disposals AS INTEGER) > 0 THEN CAST(disposals AS INTEGER) ELSE NULL END), 1) as avg_disposals,
+          ROUND(AVG(CASE WHEN goals IS NOT NULL AND goals != '' AND CAST(goals AS INTEGER) > 0 THEN CAST(goals AS INTEGER) ELSE NULL END), 1) as avg_goals,
           MIN(substr(match_date, 1, 4)) as first_year,
           MAX(substr(match_date, 1, 4)) as last_year
         FROM AFL_data
@@ -37,6 +40,7 @@ export default async function handler(req, res) {
         GROUP BY player_id, player_first_name, player_last_name
         HAVING total_games > 0
         ORDER BY player_last_name, player_first_name
+        LIMIT 50
       `,
       args: [letter]
     });
