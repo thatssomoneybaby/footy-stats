@@ -23,29 +23,34 @@ export default async function handler(req, res) {
     );
 
     if (years === 'true') {
-      // Years endpoint - get distinct years from matches
-      // Use range to get more data than the default 1000 limit
+      // Years endpoint - use efficient SQL function
       const { data: yearData, error } = await supabase
-        .from('afl_data')
-        .select('match_date')
-        .not('match_date', 'is', null)
-        .order('match_date')
-        .range(0, 200000); // Get first 200k records to ensure we get all years
+        .rpc('get_distinct_years');
       
       if (error) {
-        console.error('Years query error:', error);
-        throw error;
+        console.error('Years RPC error:', error);
+        // Fallback to the range method if function doesn't exist yet
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('afl_data')
+          .select('match_date')
+          .not('match_date', 'is', null)
+          .order('match_date')
+          .range(0, 200000);
+        
+        if (fallbackError) throw fallbackError;
+        
+        const years = [...new Set(
+          fallbackData
+            .map(row => row.match_date?.substring(0, 4))
+            .filter(year => year && /^\d{4}$/.test(year))
+        )].sort((a, b) => b.localeCompare(a));
+        
+        console.log('Years found (fallback):', years.length, 'Years:', years);
+        return res.json(years);
       }
       
-      console.log('Raw year data count:', yearData.length);
-      
-      const years = [...new Set(
-        yearData
-          .map(row => row.match_date?.substring(0, 4))
-          .filter(year => year && /^\d{4}$/.test(year))
-      )].sort((a, b) => b.localeCompare(a));
-      
-      console.log('Years found:', years.length, 'Years:', years);
+      const years = yearData.map(row => row.year);
+      console.log('Years found (RPC):', years.length, 'Years:', years);
       return res.json(years);
       
     } else if (year && round) {

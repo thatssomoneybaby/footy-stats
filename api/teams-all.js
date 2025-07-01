@@ -127,74 +127,73 @@ export default async function handler(req, res) {
       });
       
     } else {
-      // Teams list endpoint - get all unique team names
-      // Get a large sample to ensure we get all teams and years
-      const { data: homeTeams, error: homeError } = await supabase
-        .from('afl_data')
-        .select('match_home_team, match_date')
-        .not('match_home_team', 'is', null)
-        .neq('match_home_team', '')
-        .order('match_date')
-        .range(0, 200000);
-
-      if (homeError) {
-        console.error('Home teams error:', homeError);
-        throw homeError;
-      }
-
-      const { data: awayTeams, error: awayError } = await supabase
-        .from('afl_data')
-        .select('match_away_team, match_date')
-        .not('match_away_team', 'is', null)
-        .neq('match_away_team', '')
-        .order('match_date')
-        .range(0, 200000);
-
-      if (awayError) {
-        console.error('Away teams error:', awayError);
-        throw awayError;
-      }
-
-      console.log('Raw teams data:', homeTeams.length, 'home +', awayTeams.length, 'away');
-
-      // Combine home and away teams
-      const allTeamMatches = [
-        ...homeTeams.map(t => ({ team_name: t.match_home_team, match_date: t.match_date })),
-        ...awayTeams.map(t => ({ team_name: t.match_away_team, match_date: t.match_date }))
-      ];
+      // Teams list endpoint - use efficient SQL function
+      const { data: teams, error } = await supabase
+        .rpc('get_teams_with_ranges');
       
-      // Aggregate team stats
-      const teamStats = {};
-      allTeamMatches.forEach(row => {
-        const teamName = row.team_name;
-        if (!teamStats[teamName]) {
-          teamStats[teamName] = {
-            team_name: teamName,
-            match_dates: []
-          };
-        }
-        if (row.match_date) {
-          teamStats[teamName].match_dates.push(row.match_date);
-        }
-      });
+      if (error) {
+        console.error('Teams RPC error:', error);
+        // Fallback to the range method if function doesn't exist yet
+        const { data: homeTeams, error: homeError } = await supabase
+          .from('afl_data')
+          .select('match_home_team, match_date')
+          .not('match_home_team', 'is', null)
+          .neq('match_home_team', '')
+          .order('match_date')
+          .range(0, 200000);
 
-      // Calculate stats for each team
-      const teams = Object.values(teamStats)
-        .map(team => {
-          const years = team.match_dates.map(date => date.substring(0, 4));
-          const uniqueYears = [...new Set(years)];
-          
-          return {
-            team_name: team.team_name,
-            first_year: uniqueYears.length > 0 ? Math.min(...uniqueYears) : null,
-            last_year: uniqueYears.length > 0 ? Math.max(...uniqueYears) : null,
-            total_matches: team.match_dates.length
-          };
-        })
-        .filter(team => team.team_name)
-        .sort((a, b) => a.team_name.localeCompare(b.team_name));
+        if (homeError) throw homeError;
+
+        const { data: awayTeams, error: awayError } = await supabase
+          .from('afl_data')
+          .select('match_away_team, match_date')
+          .not('match_away_team', 'is', null)
+          .neq('match_away_team', '')
+          .order('match_date')
+          .range(0, 200000);
+
+        if (awayError) throw awayError;
+
+        // Process fallback data
+        const allTeamMatches = [
+          ...homeTeams.map(t => ({ team_name: t.match_home_team, match_date: t.match_date })),
+          ...awayTeams.map(t => ({ team_name: t.match_away_team, match_date: t.match_date }))
+        ];
+        
+        const teamStats = {};
+        allTeamMatches.forEach(row => {
+          const teamName = row.team_name;
+          if (!teamStats[teamName]) {
+            teamStats[teamName] = {
+              team_name: teamName,
+              match_dates: []
+            };
+          }
+          if (row.match_date) {
+            teamStats[teamName].match_dates.push(row.match_date);
+          }
+        });
+
+        const fallbackTeams = Object.values(teamStats)
+          .map(team => {
+            const years = team.match_dates.map(date => date.substring(0, 4));
+            const uniqueYears = [...new Set(years)];
+            
+            return {
+              team_name: team.team_name,
+              first_year: uniqueYears.length > 0 ? Math.min(...uniqueYears) : null,
+              last_year: uniqueYears.length > 0 ? Math.max(...uniqueYears) : null,
+              total_matches: team.match_dates.length
+            };
+          })
+          .filter(team => team.team_name)
+          .sort((a, b) => a.team_name.localeCompare(b.team_name));
+        
+        console.log('Teams found (fallback):', fallbackTeams.length);
+        return res.json(fallbackTeams);
+      }
       
-      console.log('Teams found:', teams.length, teams.slice(0, 3).map(t => t.team_name));
+      console.log('Teams found (RPC):', teams.length);
       res.json(teams);
     }
   } catch (error) {
