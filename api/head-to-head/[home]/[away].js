@@ -39,6 +39,11 @@ export default async function handler(req, res) {
     match_id: g.match_id,
     match_date: g.match_date,
     venue_name: g.venue_name,
+    // original fields for UI wiring
+    match_home_team: g.match_home_team,
+    match_away_team: g.match_away_team,
+    match_winner: g.match_winner,
+    // aliases for convenience
     homeTeam: g.match_home_team,
     awayTeam: g.match_away_team,
     winner: g.match_winner,
