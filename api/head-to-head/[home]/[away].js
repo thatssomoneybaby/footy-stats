@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       match_home_team_score,
       match_away_team_score,
       match_round
-    `, { distinct: ['match_id'] })
+    `)
     .or(`and(match_home_team.eq.${home},match_away_team.eq.${away}),and(match_home_team.eq.${away},match_away_team.eq.${home})`)
     .order('match_date', { ascending: false });
 
