@@ -82,58 +82,13 @@ export default async function handler(req, res) {
       
     } else if (year) {
       if (rounds === 'true') {
-        // Rounds for a year - get distinct rounds with match counts
-        const { data: roundsData, error } = await supabase
-          .from('afl_data')
-          .select('match_round, match_id, match_date')
-          .gte('match_date', `${year}-01-01`)
-          .lt('match_date', `${parseInt(year) + 1}-01-01`)
-          .not('match_round', 'is', null)
-          .neq('match_round', '')
-          .range(0, 50000); // Get enough data for a full year
+        // Rounds for a year – let PostgreSQL do the heavy lifting via an RPC
+        const { data: roundData, error } = await supabase
+          .rpc('get_rounds_for_year', { yr: Number(year) });
 
         if (error) throw error;
-        
-        // Group by round and calculate stats
-        const roundStats = {};
-        roundsData.forEach(row => {
-          const round = row.match_round;
-          if (!roundStats[round]) {
-            roundStats[round] = {
-              match_round: round,
-              match_count: new Set(),
-              dates: []
-            };
-          }
-          roundStats[round].match_count.add(row.match_id);
-          roundStats[round].dates.push(row.match_date);
-        });
-        
-        const roundsFormatted = Object.values(roundStats).map(stats => ({
-          match_round: stats.match_round,
-          match_count: stats.match_count.size,
-          first_match_date: Math.min(...stats.dates.map(d => new Date(d))).toISOString().split('T')[0],
-          last_match_date: Math.max(...stats.dates.map(d => new Date(d))).toISOString().split('T')[0]
-        }));
-        
-        // Sort rounds (numeric first, then alphabetic)
-        roundsFormatted.sort((a, b) => {
-          const aIsNumeric = /^\d+$/.test(a.match_round);
-          const bIsNumeric = /^\d+$/.test(b.match_round);
-          
-          if (aIsNumeric && bIsNumeric) {
-            return parseInt(a.match_round) - parseInt(b.match_round);
-          } else if (aIsNumeric) {
-            return -1;
-          } else if (bIsNumeric) {
-            return 1;
-          } else {
-            return a.match_round.localeCompare(b.match_round);
-          }
-        });
-        
-        res.json(roundsFormatted);
-        
+
+        return res.json(roundData);
       } else {
         // All matches for a year
         const { data: matches, error } = await supabase
