@@ -1,6 +1,7 @@
-import { getHallOfRecords } from './api.js';
+import { getTrophyRoom, getHallOfRecords } from './api.js';
 
 const loading = document.getElementById('loading');
+const trophyHolders = document.getElementById('trophy-holders');
 const hallOfRecords = document.getElementById('hall-of-records');
 const categoryTabs = document.getElementById('category-tabs');
 const categoryTitle = document.getElementById('category-title');
@@ -11,6 +12,7 @@ const modalTop10 = document.getElementById('modal-top-10');
 const closeModalButton = document.getElementById('close-stat-modal');
 
 let recordsData = {};
+let trophyData = [];
 let currentCategory = null;
 
 // Color configurations for categories
@@ -25,13 +27,27 @@ const categoryColors = {
   'Fantasy & Ratings': { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', button: 'bg-violet-100 hover:bg-violet-200' }
 };
 
-// Load Hall of Records on page load
-async function loadHallOfRecords() {
+// Load Trophy Room and Hall of Records data
+async function loadTrophyRoom() {
   try {
-    console.log('Loading Hall of Records...');
-    recordsData = await getHallOfRecords();
-    console.log('Hall of Records data received:', Object.keys(recordsData).length, 'categories');
+    console.log('Loading Trophy Room data...');
     
+    // Load both trophy holders and hall of records in parallel
+    const [trophyHolders, hallOfRecordsData] = await Promise.all([
+      getTrophyRoom(),
+      getHallOfRecords()
+    ]);
+    
+    trophyData = trophyHolders;
+    recordsData = hallOfRecordsData;
+    
+    console.log('Trophy holders loaded:', trophyData.length);
+    console.log('Hall of Records loaded:', Object.keys(recordsData).length, 'categories');
+    
+    // Render trophy holders section
+    renderTrophyHolders(trophyData);
+    
+    // Render category tabs for hall of records
     renderCategoryTabs();
     
     // Show first category by default
@@ -42,11 +58,39 @@ async function loadHallOfRecords() {
     
     // Hide loading and show content
     loading.classList.add('hidden');
+    if (trophyHolders) trophyHolders.classList.remove('hidden');
     hallOfRecords.classList.remove('hidden');
   } catch (error) {
-    console.error('Error loading Hall of Records:', error);
-    loading.innerHTML = `<p class="text-red-600">Error loading Hall of Records: ${error.message}. Please try again.</p>`;
+    console.error('Error loading Trophy Room:', error);
+    loading.innerHTML = `<p class="text-red-600">Error loading Trophy Room: ${error.message}. Please try again.</p>`;
   }
+}
+
+function renderTrophyHolders(trophyHolders) {
+  if (!trophyHolders || !document.getElementById('trophy-holders-grid')) {
+    return; // Element doesn't exist in the template
+  }
+  
+  const trophyGrid = document.getElementById('trophy-holders-grid');
+  trophyGrid.innerHTML = '';
+  
+  trophyHolders.forEach(trophy => {
+    const trophyCard = document.createElement('div');
+    trophyCard.className = 'bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center';
+    
+    const playerName = `${trophy.player.player_first_name} ${trophy.player.player_last_name}`;
+    
+    trophyCard.innerHTML = `
+      <div class="text-4xl mb-3">${trophy.icon}</div>
+      <h3 class="text-xl font-bold text-gray-900 mb-2">${trophy.name}</h3>
+      <h4 class="text-lg font-semibold text-afl-blue mb-1">${playerName}</h4>
+      <div class="text-2xl font-bold text-gray-900 mb-1">${trophy.player.stat_value.toLocaleString()}</div>
+      <div class="text-sm text-gray-500">${trophy.player.games_played} games</div>
+      <div class="text-xs text-gray-400 mt-2">${trophy.category}</div>
+    `;
+    
+    trophyGrid.appendChild(trophyCard);
+  });
 }
 
 
@@ -236,4 +280,4 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Initialize page
-loadHallOfRecords();
+loadTrophyRoom();
