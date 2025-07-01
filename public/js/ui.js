@@ -81,7 +81,7 @@ const friendlyNames = {
   player_position: "Position",
   date: "Date"
 };
-import { getYears, getMatches } from './api.js';
+import { getYears, getMatches, getRounds, getRoundMatches } from './api.js';
 
 const sidebar = document.getElementById('year-bar');  // container for dynamic year buttons
 const table = document.getElementById('matches-table');
@@ -99,10 +99,80 @@ function createSidebar(years) {
       btn.className = 'px-4 py-2 bg-afl-blue text-white border border-afl-blue rounded-lg font-medium';
 
       seasonTitle.textContent = `Season ${year}`;
-      const matches = await getMatches(year);
-      renderTable(matches);
+      const rounds = await getRounds(year);
+      renderRounds(year, rounds);
     };
     sidebar.appendChild(btn);
+  });
+}
+
+function renderRounds(year, rounds) {
+  table.innerHTML = '';
+  if (rounds.length === 0) {
+    table.innerHTML = '<p>No rounds found for this year.</p>';
+    return;
+  }
+
+  // Create rounds grid
+  const roundsContainer = document.createElement('div');
+  roundsContainer.className = 'grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6';
+  
+  rounds.forEach(round => {
+    const roundButton = document.createElement('button');
+    roundButton.className = 'p-3 bg-white border border-gray-300 rounded-lg hover:bg-afl-blue hover:text-white transition-colors text-center';
+    roundButton.innerHTML = `
+      <div class="font-semibold">${round.match_round}</div>
+      <div class="text-sm text-gray-500">${round.match_count} matches</div>
+    `;
+    roundButton.onclick = async () => {
+      // Update button states
+      roundsContainer.querySelectorAll('button').forEach(b => {
+        b.className = 'p-3 bg-white border border-gray-300 rounded-lg hover:bg-afl-blue hover:text-white transition-colors text-center';
+      });
+      roundButton.className = 'p-3 bg-afl-blue text-white border border-afl-blue rounded-lg text-center';
+      
+      // Load matches for this round
+      const matches = await getRoundMatches(year, round.match_round);
+      renderMatches(matches);
+    };
+    
+    roundsContainer.appendChild(roundButton);
+  });
+  
+  table.appendChild(roundsContainer);
+  
+  // Add placeholder for matches
+  const matchesContainer = document.createElement('div');
+  matchesContainer.id = 'matches-container';
+  matchesContainer.innerHTML = '<p class="text-center text-gray-500 py-8">Select a round to view matches</p>';
+  table.appendChild(matchesContainer);
+}
+
+function renderMatches(matches) {
+  const matchesContainer = document.getElementById('matches-container');
+  matchesContainer.innerHTML = '';
+  
+  if (matches.length === 0) {
+    matchesContainer.innerHTML = '<p class="text-center text-gray-500 py-8">No matches found for this round.</p>';
+    return;
+  }
+
+  matches.forEach(match => {
+    const matchCard = document.createElement('div');
+    matchCard.className = 'p-4 bg-white border border-gray-200 rounded-lg mb-4';
+    matchCard.innerHTML = `
+      <div class="flex justify-between items-center">
+        <div class="flex-1">
+          <div class="font-semibold">${match.match_home_team} vs ${match.match_away_team}</div>
+          <div class="text-sm text-gray-500">${match.match_date} • ${match.venue_name}</div>
+        </div>
+        <div class="text-right">
+          <div class="font-bold">${match.match_home_team_score} - ${match.match_away_team_score}</div>
+          <div class="text-sm text-gray-500">Winner: ${match.match_winner}</div>
+        </div>
+      </div>
+    `;
+    matchesContainer.appendChild(matchCard);
   });
 }
 
