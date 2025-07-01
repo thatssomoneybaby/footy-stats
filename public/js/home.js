@@ -1,4 +1,4 @@
-import { getUpcomingGames, getInsights, getTopPerformers, getHeadToHead } from './api.js';
+import { getUpcomingGames, getInsights, getHeadToHead } from './api.js';
 
 // Team color mapping
 const teamColors = {

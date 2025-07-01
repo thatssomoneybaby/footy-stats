@@ -1,9 +1,5 @@
-// Always hit the Vercel‑style serverless functions at /api/*.
-// In dev (`npm run dev` with Vercel CLI or a local static file server),
-// the functions are still mounted at http://localhost:3000/api/*.
+// API functions mapped to consolidated endpoints
 const BASE = '/api';
-
-// Consolidated API endpoints to stay under Vercel's 12 function limit
 
 export async function getYears() {
   const res = await fetch(`${BASE}/matches-all?years=true`);
@@ -65,12 +61,17 @@ export async function getInsights() {
   return res.json();
 }
 
+export async function getUpcomingGames() {
+  // Placeholder - not implemented in consolidated version
+  return [];
+}
+
 export async function getTopPerformers(teamName) {
-  const res = await fetch(`${BASE}/top-performers/${encodeURIComponent(teamName)}`);
-  return res.json();
+  // Placeholder - not implemented in consolidated version  
+  return {};
 }
 
 export async function getHeadToHead(team1, team2) {
-  const res = await fetch(`${BASE}/head-to-head/${encodeURIComponent(team1)}/${encodeURIComponent(team2)}`);
-  return res.json();
+  // Placeholder - not implemented in consolidated version
+  return {};
 }
