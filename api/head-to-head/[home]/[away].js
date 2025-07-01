@@ -26,11 +26,26 @@ export default async function handler(req, res) {
 
   if (error) return res.status(500).json({ error });
 
-  const uniqueGames = games.map(g => ({
-    ...g,
+  // dedupe raw rows by match_id
+  const matchMap = new Map();
+  games.forEach(g => {
+    if (!matchMap.has(g.match_id)) {
+      matchMap.set(g.match_id, g);
+    }
+  });
+  const deduped = Array.from(matchMap.values());
+
+  const uniqueGames = deduped.map(g => ({
+    match_id: g.match_id,
+    match_date: g.match_date,
+    venue_name: g.venue_name,
+    homeTeam: g.match_home_team,
+    awayTeam: g.match_away_team,
+    winner: g.match_winner,
     margin: g.match_margin,
     homeScore: g.match_home_team_score,
-    awayScore: g.match_away_team_score
+    awayScore: g.match_away_team_score,
+    match_round: g.match_round
   }));
 
   const summary = { totalGames: uniqueGames.length, [home]: 0, [away]: 0 };

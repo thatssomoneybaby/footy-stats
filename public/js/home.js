@@ -71,6 +71,7 @@ async function loadInsights() {
 }
 
 function renderUpcomingGames(games) {
+  const now = Date.now();
   upcomingGamesContent.innerHTML = '';
   
   if (games.length === 0) {
@@ -99,7 +100,9 @@ function renderUpcomingGames(games) {
     gameCard.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <div class="text-sm font-medium text-gray-900">
-          ${game.complete < 100 ? `<span class="live-dot">LIVE</span>` : ''}
+          ${Date.parse(game.date) <= now && game.complete < 100
+            ? `<span class="live-dot">LIVE</span>`
+            : ''}
           ${game.hteam} vs ${game.ateam}
         </div>
         <div class="text-right">
