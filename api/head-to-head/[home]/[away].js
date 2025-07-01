@@ -16,6 +16,22 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to fetch head-to-head count' });
   }
 
+  // Instead of JS counting, fetch home_wins, away_wins and total_meetings in one go:
+  const { data: rpcSummary, error: rpcError } = await supabase
+    .rpc('head_to_head_summary', { home_team: home, away_team: away });
+
+  if (rpcError) {
+    console.error('Summary RPC error:', rpcError);
+    return res.status(500).json({ error: 'Failed to fetch head-to-head summary' });
+  }
+
+  // Build summary object for front-end
+  const summary = {
+    totalGames: rpcSummary.total_meetings,
+    [home]: rpcSummary.home_wins,
+    [away]: rpcSummary.away_wins
+  };
+
   const { data: games, error } = await supabase
     .from('afl_data')
     .select(`
@@ -65,10 +81,6 @@ export default async function handler(req, res) {
     match_round: g.match_round
   }));
 
-  const summary = { totalGames: totalCount || 0, [home]: 0, [away]: 0 };
-  uniqueGames.forEach(g => {
-    summary[g.winner] = (summary[g.winner] || 0) + 1;
-  });
 
   const lastMeeting = uniqueGames[0] || null;
   const biggestWins = {};
