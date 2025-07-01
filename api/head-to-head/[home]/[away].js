@@ -7,6 +7,15 @@ export default async function handler(req, res) {
     process.env.SUPABASE_ANON_KEY
   );
 
+  // Get total unique meetings via Postgres function
+  const { data: totalCount, error: countError } = await supabase
+    .rpc('count_head_to_head', { home_team: home, away_team: away });
+
+  if (countError) {
+    console.error('RPC count error:', countError);
+    return res.status(500).json({ error: 'Failed to fetch head-to-head count' });
+  }
+
   const { data: games, error } = await supabase
     .from('afl_data')
     .select(`
@@ -55,7 +64,7 @@ export default async function handler(req, res) {
     match_round: g.match_round
   }));
 
-  const summary = { totalGames: uniqueGames.length, [home]: 0, [away]: 0 };
+  const summary = { totalGames: totalCount || 0, [home]: 0, [away]: 0 };
   uniqueGames.forEach(g => {
     summary[g.winner] = (summary[g.winner] || 0) + 1;
   });
