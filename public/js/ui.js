@@ -163,7 +163,10 @@ function renderMatches(matches) {
     matchCard.innerHTML = `
       <div class="flex justify-between items-center">
         <div class="flex-1">
-          <div class="font-semibold">${match.match_home_team} vs ${match.match_away_team}</div>
+          <div class="font-semibold flex items-center gap-2">
+            <span class="text-xl font-bold text-afl-blue">+</span>
+            ${match.match_home_team} vs ${match.match_away_team}
+          </div>
           <div class="text-sm text-gray-500">${match.match_date} • ${match.venue_name}</div>
         </div>
         <div class="text-right">
@@ -187,7 +190,9 @@ function renderMatches(matches) {
       const detailContainer = document.createElement('div');
       detailContainer.className = 'match-detail mt-4 overflow-auto';
 
-      const keys = Object.keys(matchDetails[0]).filter(key => matchDetails.some(row => row[key]));
+      const keys = Object.keys(matchDetails[0]).filter(key =>
+        matchDetails.some(row => row[key] !== null && row[key] !== '')
+      );
 
       const table = document.createElement('table');
       table.className = 'w-full border-collapse text-sm border border-gray-200';
