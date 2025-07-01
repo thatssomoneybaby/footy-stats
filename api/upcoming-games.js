@@ -1,8 +1,9 @@
-import fetch from 'node-fetch';
-
 let cache = { ts: 0, data: [] };          // 10-minute in-memory cache
 
 export default async function handler(req, res) {
+  // dynamically use the current year to avoid off-season queries
+  const year = new Date().getFullYear();
+
   //  === 1. Respect GET only  ============================================
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -15,8 +16,7 @@ export default async function handler(req, res) {
     }
 
     //  === 3. Fetch next eight fixtures from Squiggle  ===================
-    const url =
-      'https://api.squiggle.com.au/?q=games;year=2025;coming=8;format=json';
+    const url = `https://api.squiggle.com.au/?q=games;year=${year};coming=8;format=json`;
 
     const rsp = await fetch(url, {
       headers: {

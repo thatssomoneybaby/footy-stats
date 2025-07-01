@@ -37,13 +37,11 @@ const insightsError = document.getElementById('insights-error');
 
 // Load upcoming games using real getUpcomingGames data
 async function loadUpcomingGames() {
+  upcomingGamesLoading.classList.remove('hidden');
   try {
-    upcomingGamesLoading.classList.remove('hidden');
-
-    const games = await getUpcomingGames();   // ← now real data
-    renderUpcomingGames(games);
-
+    const games = await getUpcomingGames();
     upcomingGamesContent.classList.remove('hidden');
+    renderUpcomingGames(games);      // your existing function that builds the cards
   } catch (err) {
     console.error(err);
     upcomingGamesError.classList.remove('hidden');

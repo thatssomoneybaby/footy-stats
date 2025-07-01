@@ -89,7 +89,8 @@ export async function getInsights() {
 
 export async function getUpcomingGames() {
   const res = await fetch('/api/upcoming-games');
-  return res.json();          // returns an array of fixture objects
+  if (!res.ok) throw new Error('Could not load upcoming games');
+  return res.json();
 }
 
 export async function getTopPerformers(teamName) {
