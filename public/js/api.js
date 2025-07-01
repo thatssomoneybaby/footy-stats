@@ -2,8 +2,21 @@
 const BASE = '/api';
 
 export async function getYears() {
-  const res = await fetch(`${BASE}/matches-all?years=true`);
-  return res.json();
+  try {
+    const res = await fetch(`${BASE}/matches-all?years=true`);
+    if (!res.ok) {
+      console.error('Years API error:', res.status, res.statusText);
+      const errorData = await res.text();
+      console.error('Error details:', errorData);
+      return [];
+    }
+    const data = await res.json();
+    console.log('Years data received:', data);
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch years:', error);
+    return [];
+  }
 }
 
 export async function getMatches(year) {
@@ -22,8 +35,21 @@ export async function getRoundMatches(year, round) {
 }
 
 export async function getTeams() {
-  const res = await fetch(`${BASE}/teams-all`);
-  return res.json();
+  try {
+    const res = await fetch(`${BASE}/teams-all`);
+    if (!res.ok) {
+      console.error('Teams API error:', res.status, res.statusText);
+      const errorData = await res.text();
+      console.error('Error details:', errorData);
+      return [];
+    }
+    const data = await res.json();
+    console.log('Teams data received:', data);
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch teams:', error);
+    return [];
+  }
 }
 
 export async function getTeamDetails(teamName) {

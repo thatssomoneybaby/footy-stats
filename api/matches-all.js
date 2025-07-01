@@ -8,6 +8,15 @@ export default async function handler(req, res) {
   const { year, round, years, rounds } = req.query;
 
   try {
+    // Check environment variables
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      console.error('Missing Supabase environment variables');
+      return res.status(500).json({ 
+        error: 'Server configuration error',
+        details: 'Missing database credentials'
+      });
+    }
+
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_ANON_KEY
