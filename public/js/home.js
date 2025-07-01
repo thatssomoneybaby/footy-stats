@@ -40,10 +40,8 @@ async function loadUpcomingGames() {
   upcomingGamesLoading.classList.remove('hidden');
   try {
     const games = await getUpcomingGames();
-    const now = Date.now();
-    const upcoming = games.filter(g => Date.parse(g.date) > now);
     upcomingGamesContent.classList.remove('hidden');
-    renderUpcomingGames(upcoming);
+    renderUpcomingGames(games);
   } catch (err) {
     console.error(err);
     upcomingGamesError.classList.remove('hidden');
@@ -101,7 +99,7 @@ function renderUpcomingGames(games) {
     gameCard.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <div class="text-sm font-medium text-gray-900">
-          ${game.status === 'LIVE' ? `<span class="live-dot">LIVE</span>` : ''}
+          ${game.complete < 100 ? `<span class="live-dot">LIVE</span>` : ''}
           ${game.hteam} vs ${game.ateam}
         </div>
         <div class="text-right">
@@ -110,7 +108,7 @@ function renderUpcomingGames(games) {
         </div>
       </div>
       <div class="mt-2 text-xs text-gray-600">
-        <div>Round ${game.round} • ${game.roundname}</div>
+        <div>Round ${game.round}</div>
         ${index === 0 ? `<div class="mt-1 text-blue-600 font-medium">Next game ⚡</div>` : ''}
       </div>
       <button onclick="showGameInsights('${game.hteam}', '${game.ateam}')" class="mt-2 text-xs text-afl-blue hover:text-afl-blue-dark font-medium cursor-pointer">View detailed insights →</button>

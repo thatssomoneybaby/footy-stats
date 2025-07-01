@@ -21,23 +21,16 @@ export default async function handler(req, res) {
       match_away_team_score,
       match_round
     `, { distinct: ['match_id'] })
-    .or(`match_home_team.eq.${home},match_home_team.eq.${away}`)
-    .or(`match_away_team.eq.${away},match_away_team.eq.${home}`)
+    .or(`and(match_home_team.eq.${home},match_away_team.eq.${away}),and(match_home_team.eq.${away},match_away_team.eq.${home})`)
     .order('match_date', { ascending: false });
 
   if (error) return res.status(500).json({ error });
 
   const uniqueGames = games.map(g => ({
-    match_id: g.match_id,
-    match_date: g.match_date,
-    venue_name: g.venue_name,
-    homeTeam: g.match_home_team,
-    awayTeam: g.match_away_team,
-    winner: g.match_winner,
+    ...g,
     margin: g.match_margin,
     homeScore: g.match_home_team_score,
-    awayScore: g.match_away_team_score,
-    match_round: g.match_round
+    awayScore: g.match_away_team_score
   }));
 
   const summary = { totalGames: uniqueGames.length, [home]: 0, [away]: 0 };
