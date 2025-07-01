@@ -17,8 +17,9 @@ export default async function handler(req, res) {
   }
 
   // Instead of JS counting, fetch home_wins, away_wins and total_meetings in one go:
-  const { data: rpcSummary, error: rpcError } = await supabase
+  const { data: rpcSummaryArr, error: rpcError } = await supabase
     .rpc('head_to_head_summary', { home_team: home, away_team: away });
+  const rpcSummary = (rpcSummaryArr && rpcSummaryArr[0]) || { home_wins: 0, away_wins: 0, total_meetings: 0 };
 
   if (rpcError) {
     console.error('Summary RPC error:', rpcError);
@@ -28,8 +29,8 @@ export default async function handler(req, res) {
   // Build summary object for front-end
   const summary = {
     totalGames: rpcSummary.total_meetings,
-    [home]: rpcSummary.home_wins,
-    [away]: rpcSummary.away_wins
+    homeWins: rpcSummary.home_wins,
+    awayWins: rpcSummary.away_wins
   };
 
   const { data: games, error } = await supabase
