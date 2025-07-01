@@ -8,45 +8,66 @@ export default async function handler(req, res) {
   const { letter, playerId, alphabet } = req.query;
 
   try {
+    // Check environment variables
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      console.error('Missing Supabase environment variables');
+      return res.status(500).json({ 
+        error: 'Server configuration error',
+        details: 'Missing database credentials'
+      });
+    }
+
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_ANON_KEY
     );
 
     if (alphabet === 'true') {
-      // Players alphabet endpoint
-      const { data: playersData, error } = await supabase
-        .from('afl_data')
-        .select('player_first_name, player_last_name, player_id')
-        .not('player_id', 'is', null)
-        .neq('player_id', '')
-        .not('player_first_name', 'is', null)
-        .neq('player_first_name', '')
-        .not('player_last_name', 'is', null)
-        .neq('player_last_name', '');
+      // Players alphabet endpoint - use efficient SQL function
+      const { data: alphabetData, error } = await supabase
+        .rpc('get_player_alphabet');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Player alphabet RPC error:', error);
+        // Fallback to range method if function doesn't exist yet
+        const { data: playersData, error: fallbackError } = await supabase
+          .from('afl_data')
+          .select('player_first_name, player_last_name, player_id')
+          .not('player_id', 'is', null)
+          .neq('player_id', '')
+          .not('player_first_name', 'is', null)
+          .neq('player_first_name', '')
+          .not('player_last_name', 'is', null)
+          .neq('player_last_name', '')
+          .range(0, 200000);
 
-      // Count unique players by first letter of last name
-      const letterCounts = {};
-      const uniquePlayers = new Set();
-      
-      playersData.forEach(row => {
-        const playerId = row.player_id;
-        if (!uniquePlayers.has(playerId) && row.player_last_name) {
-          uniquePlayers.add(playerId);
-          const letter = row.player_last_name.charAt(0).toUpperCase();
-          if (/[A-Z]/.test(letter)) {  // Only include A-Z letters
-            letterCounts[letter] = (letterCounts[letter] || 0) + 1;
+        if (fallbackError) throw fallbackError;
+
+        // Process fallback data
+        const letterCounts = {};
+        const uniquePlayers = new Set();
+        
+        playersData.forEach(row => {
+          const playerId = row.player_id;
+          if (!uniquePlayers.has(playerId) && row.player_last_name) {
+            uniquePlayers.add(playerId);
+            const letter = row.player_last_name.charAt(0).toUpperCase();
+            if (/[A-Z]/.test(letter)) {
+              letterCounts[letter] = (letterCounts[letter] || 0) + 1;
+            }
           }
-        }
-      });
+        });
 
-      const letters = Object.entries(letterCounts)
-        .map(([letter, player_count]) => ({ letter, player_count }))
-        .sort((a, b) => a.letter.localeCompare(b.letter));
+        const letters = Object.entries(letterCounts)
+          .map(([letter, player_count]) => ({ letter, player_count }))
+          .sort((a, b) => a.letter.localeCompare(b.letter));
 
-      res.json(letters);
+        console.log('Player alphabet found (fallback):', letters.length);
+        return res.json(letters);
+      }
+
+      console.log('Player alphabet found (RPC):', alphabetData.length);
+      res.json(alphabetData);
       
     } else if (playerId) {
       // Individual player details
@@ -113,68 +134,79 @@ export default async function handler(req, res) {
       });
       
     } else if (letter) {
-      // Players by letter
-      const { data: playersData, error } = await supabase
-        .from('afl_data')
-        .select(`
-          player_id, player_first_name, player_last_name,
-          disposals, goals, match_date
-        `)
-        .not('player_id', 'is', null)
-        .neq('player_id', '')
-        .not('player_first_name', 'is', null)
-        .neq('player_first_name', '')
-        .not('player_last_name', 'is', null)
-        .neq('player_last_name', '')
-        .ilike('player_last_name', `${letter}%`);
+      // Players by letter - use efficient SQL function
+      const { data: players, error } = await supabase
+        .rpc('get_players_by_letter', { search_letter: letter });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Players by letter RPC error:', error);
+        // Fallback to range method if function doesn't exist yet
+        const { data: playersData, error: fallbackError } = await supabase
+          .from('afl_data')
+          .select(`
+            player_id, player_first_name, player_last_name,
+            disposals, goals, match_date
+          `)
+          .not('player_id', 'is', null)
+          .neq('player_id', '')
+          .not('player_first_name', 'is', null)
+          .neq('player_first_name', '')
+          .not('player_last_name', 'is', null)
+          .neq('player_last_name', '')
+          .ilike('player_last_name', `${letter}%`)
+          .range(0, 200000);
 
-      // Aggregate stats by player
-      const playerStats = {};
-      playersData.forEach(row => {
-        const playerId = row.player_id;
-        if (!playerStats[playerId]) {
-          playerStats[playerId] = {
-            player_id: playerId,
-            player_first_name: row.player_first_name,
-            player_last_name: row.player_last_name,
-            total_games: 0,
-            total_disposals: 0,
-            total_goals: 0,
-            years: new Set()
-          };
-        }
-        
-        playerStats[playerId].total_games++;
-        playerStats[playerId].total_disposals += parseInt(row.disposals) || 0;
-        playerStats[playerId].total_goals += parseInt(row.goals) || 0;
-        
-        if (row.match_date) {
-          playerStats[playerId].years.add(row.match_date.substring(0, 4));
-        }
-      });
+        if (fallbackError) throw fallbackError;
 
-      // Convert to array and calculate averages
-      const players = Object.values(playerStats)
-        .map(player => ({
-          ...player,
-          avg_disposals: player.total_games > 0 
-            ? (player.total_disposals / player.total_games).toFixed(1) 
-            : '0.0',
-          avg_goals: player.total_games > 0 
-            ? (player.total_goals / player.total_games).toFixed(1) 
-            : '0.0',
-          first_year: player.years.size > 0 ? Math.min(...Array.from(player.years)) : null,
-          last_year: player.years.size > 0 ? Math.max(...Array.from(player.years)) : null
-        }))
-        .filter(player => player.total_games > 0)
-        .sort((a, b) => {
-          const lastNameCompare = a.player_last_name.localeCompare(b.player_last_name);
-          return lastNameCompare !== 0 ? lastNameCompare : a.player_first_name.localeCompare(b.player_first_name);
-        })
-        .slice(0, 50);
+        // Process fallback data
+        const playerStats = {};
+        playersData.forEach(row => {
+          const playerId = row.player_id;
+          if (!playerStats[playerId]) {
+            playerStats[playerId] = {
+              player_id: playerId,
+              player_first_name: row.player_first_name,
+              player_last_name: row.player_last_name,
+              total_games: 0,
+              total_disposals: 0,
+              total_goals: 0,
+              years: new Set()
+            };
+          }
+          
+          playerStats[playerId].total_games++;
+          playerStats[playerId].total_disposals += parseInt(row.disposals) || 0;
+          playerStats[playerId].total_goals += parseInt(row.goals) || 0;
+          
+          if (row.match_date) {
+            playerStats[playerId].years.add(row.match_date.substring(0, 4));
+          }
+        });
 
+        const fallbackPlayers = Object.values(playerStats)
+          .map(player => ({
+            ...player,
+            avg_disposals: player.total_games > 0 
+              ? (player.total_disposals / player.total_games).toFixed(1) 
+              : '0.0',
+            avg_goals: player.total_games > 0 
+              ? (player.total_goals / player.total_games).toFixed(1) 
+              : '0.0',
+            first_year: player.years.size > 0 ? Math.min(...Array.from(player.years)) : null,
+            last_year: player.years.size > 0 ? Math.max(...Array.from(player.years)) : null
+          }))
+          .filter(player => player.total_games > 0)
+          .sort((a, b) => {
+            const lastNameCompare = a.player_last_name.localeCompare(b.player_last_name);
+            return lastNameCompare !== 0 ? lastNameCompare : a.player_first_name.localeCompare(b.player_first_name);
+          })
+          .slice(0, 50);
+
+        console.log('Players by letter found (fallback):', fallbackPlayers.length);
+        return res.json(fallbackPlayers);
+      }
+
+      console.log('Players by letter found (RPC):', players.length);
       res.json(players);
       
     } else {
