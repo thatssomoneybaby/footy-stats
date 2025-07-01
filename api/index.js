@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { createClient } from '@libsql/client';
+import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 
 config();
@@ -8,21 +8,28 @@ config();
 const app = express();
 app.use(cors());
 
-const db = createClient({
-  url: process.env.TURSO_DB_URL,
-  authToken: process.env.TURSO_DB_AUTH_TOKEN,
-});
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
 // Endpoint: get all available years
 app.get('/years', async (_, res) => {
   try {
-    const years = await db.execute(`
-      SELECT DISTINCT substr(match_date, 1, 4) AS year
-      FROM AFL_data
-      WHERE year GLOB '[1-2][0-9][0-9][0-9]'
-      ORDER BY year DESC
-    `);
-    res.json(years.rows.map(row => row.year));
+    const { data: yearsData, error } = await supabase
+      .from('afl_data')
+      .select('match_date')
+      .not('match_date', 'is', null);
+    
+    if (error) throw error;
+    
+    const years = [...new Set(
+      yearsData
+        .map(row => row.match_date?.substring(0, 4))
+        .filter(year => year && /^\d{4}$/.test(year))
+    )].sort((a, b) => b.localeCompare(a));
+    
+    res.json(years);
   } catch (error) {
     console.error('Error fetching years:', error);
     res.status(500).json({ error: 'Failed to fetch years' });
@@ -35,11 +42,14 @@ app.get('/matches', async (req, res) => {
   if (!year) return res.status(400).json({ error: 'Year required' });
 
   try {
-    const matches = await db.execute({
-      sql: `SELECT * FROM AFL_data WHERE strftime('%Y', match_date) = ?`,
-      args: [year]
-    });
-    res.json(matches.rows);
+    const { data: matches, error } = await supabase
+      .from('afl_data')
+      .select('*')
+      .gte('match_date', `${year}-01-01`)
+      .lt('match_date', `${parseInt(year) + 1}-01-01`);
+    
+    if (error) throw error;
+    res.json(matches);
   } catch (error) {
     console.error('Error fetching matches:', error);
     res.status(500).json({ error: 'Failed to fetch matches' });
@@ -49,22 +59,62 @@ app.get('/matches', async (req, res) => {
 // Endpoint: get all unique teams with their year range
 app.get('/teams', async (_, res) => {
   try {
-    const teams = await db.execute(`
-      SELECT 
-        team_name,
-        MIN(substr(match_date, 1, 4)) as first_year,
-        MAX(substr(match_date, 1, 4)) as last_year,
-        COUNT(DISTINCT match_id) as total_matches
-      FROM (
-        SELECT match_home_team as team_name, match_date, match_id FROM AFL_data
-        UNION
-        SELECT match_away_team as team_name, match_date, match_id FROM AFL_data
-      )
-      WHERE team_name IS NOT NULL AND team_name != ''
-      GROUP BY team_name
-      ORDER BY team_name
-    `);
-    res.json(teams.rows);
+    const { data: homeTeams, error: homeError } = await supabase
+      .from('afl_data')
+      .select('match_home_team as team_name, match_date, match_id')
+      .not('match_home_team', 'is', null)
+      .neq('match_home_team', '');
+
+    if (homeError) throw homeError;
+
+    const { data: awayTeams, error: awayError } = await supabase
+      .from('afl_data')
+      .select('match_away_team as team_name, match_date, match_id')
+      .not('match_away_team', 'is', null)
+      .neq('match_away_team', '');
+
+    if (awayError) throw awayError;
+
+    // Combine and aggregate
+    const allTeamMatches = [
+      ...homeTeams.map(t => ({ team_name: t.match_home_team, match_date: t.match_date, match_id: t.match_id })),
+      ...awayTeams.map(t => ({ team_name: t.match_away_team, match_date: t.match_date, match_id: t.match_id }))
+    ];
+    
+    const teamStats = {};
+    allTeamMatches.forEach(row => {
+      const teamName = row.team_name;
+      if (!teamStats[teamName]) {
+        teamStats[teamName] = {
+          team_name: teamName,
+          match_dates: [],
+          match_ids: new Set()
+        };
+      }
+      if (row.match_date) {
+        teamStats[teamName].match_dates.push(row.match_date);
+      }
+      if (row.match_id) {
+        teamStats[teamName].match_ids.add(row.match_id);
+      }
+    });
+
+    const teams = Object.values(teamStats)
+      .map(team => {
+        const years = team.match_dates.map(date => date.substring(0, 4));
+        const uniqueYears = [...new Set(years)];
+        
+        return {
+          team_name: team.team_name,
+          first_year: uniqueYears.length > 0 ? Math.min(...uniqueYears) : null,
+          last_year: uniqueYears.length > 0 ? Math.max(...uniqueYears) : null,
+          total_matches: team.match_ids.size
+        };
+      })
+      .filter(team => team.team_name)
+      .sort((a, b) => a.team_name.localeCompare(b.team_name));
+    
+    res.json(teams);
   } catch (error) {
     console.error('Error fetching teams:', error);
     res.status(500).json({ error: 'Failed to fetch teams' });
@@ -76,70 +126,88 @@ app.get('/teams/:teamName', async (req, res) => {
   const { teamName } = req.params;
   
   try {
-    // Get basic team stats
-    const teamStats = await db.execute({
-      sql: `
-        SELECT 
-          COUNT(DISTINCT match_id) as total_matches,
-          SUM(CASE WHEN match_winner = ? THEN 1 ELSE 0 END) as wins,
-          SUM(CASE WHEN match_winner != ? AND match_winner IS NOT NULL THEN 1 ELSE 0 END) as losses,
-          MAX(CASE WHEN match_home_team = ? THEN CAST(match_home_team_score AS INTEGER) ELSE CAST(match_away_team_score AS INTEGER) END) as highest_score,
-          MIN(CASE WHEN match_home_team = ? THEN CAST(match_home_team_score AS INTEGER) ELSE CAST(match_away_team_score AS INTEGER) END) as lowest_score
-        FROM (
-          SELECT DISTINCT match_id, match_home_team, match_away_team, match_winner, 
-                 match_home_team_score, match_away_team_score
-          FROM AFL_data 
-          WHERE match_home_team = ? OR match_away_team = ?
-        )
-      `,
-      args: [teamName, teamName, teamName, teamName, teamName, teamName]
+    // Get all matches for this team
+    const { data: allMatches, error: matchesError } = await supabase
+      .from('afl_data')
+      .select(`
+        match_id, match_home_team, match_away_team, match_winner,
+        match_home_team_score, match_away_team_score, match_margin,
+        match_date, match_round, venue_name
+      `)
+      .or(`match_home_team.eq.${teamName},match_away_team.eq.${teamName}`);
+
+    if (matchesError) throw matchesError;
+
+    // Remove duplicates
+    const uniqueMatches = allMatches.reduce((acc, match) => {
+      if (!acc.find(m => m.match_id === match.match_id)) {
+        acc.push(match);
+      }
+      return acc;
+    }, []);
+
+    const teamStats = {
+      total_matches: uniqueMatches.length,
+      wins: uniqueMatches.filter(m => m.match_winner === teamName).length,
+      losses: uniqueMatches.filter(m => m.match_winner && m.match_winner !== teamName).length
+    };
+
+    // Calculate highest and lowest scores
+    const teamScores = uniqueMatches.map(match => {
+      return match.match_home_team === teamName 
+        ? parseInt(match.match_home_team_score) || 0
+        : parseInt(match.match_away_team_score) || 0;
+    }).filter(score => score > 0);
+
+    teamStats.highest_score = Math.max(...teamScores, 0);
+    teamStats.lowest_score = Math.min(...teamScores, Infinity) === Infinity ? 0 : Math.min(...teamScores);
+
+    // Get player stats
+    const { data: playerData, error: playerError } = await supabase
+      .from('afl_data')
+      .select(`
+        player_first_name, player_last_name, player_id,
+        disposals, goals
+      `)
+      .eq('player_team', teamName)
+      .not('disposals', 'is', null)
+      .neq('disposals', '');
+
+    if (playerError) throw playerError;
+
+    // Aggregate player stats
+    const playerStats = {};
+    playerData.forEach(row => {
+      const playerId = row.player_id;
+      if (!playerStats[playerId]) {
+        playerStats[playerId] = {
+          player_first_name: row.player_first_name,
+          player_last_name: row.player_last_name,
+          total_disposals: 0,
+          total_goals: 0,
+          games_played: 0
+        };
+      }
+      playerStats[playerId].total_disposals += parseInt(row.disposals) || 0;
+      playerStats[playerId].total_goals += parseInt(row.goals) || 0;
+      playerStats[playerId].games_played += 1;
     });
 
-    // Get top disposal getters
-    const topDisposals = await db.execute({
-      sql: `
-        SELECT 
-          player_first_name,
-          player_last_name,
-          SUM(CAST(disposals AS INTEGER)) as total_disposals,
-          COUNT(DISTINCT match_id) as games_played,
-          AVG(CAST(disposals AS INTEGER)) as avg_disposals
-        FROM AFL_data 
-        WHERE player_team = ? 
-          AND disposals IS NOT NULL 
-          AND disposals != ''
-        GROUP BY player_id, player_first_name, player_last_name
-        ORDER BY total_disposals DESC 
-        LIMIT 10
-      `,
-      args: [teamName]
-    });
+    const topDisposals = Object.values(playerStats)
+      .map(p => ({ ...p, avg_disposals: (p.total_disposals / p.games_played).toFixed(1) }))
+      .sort((a, b) => b.total_disposals - a.total_disposals)
+      .slice(0, 10);
 
-    // Get top goal kickers
-    const topGoals = await db.execute({
-      sql: `
-        SELECT 
-          player_first_name,
-          player_last_name,
-          SUM(CAST(goals AS INTEGER)) as total_goals,
-          COUNT(DISTINCT match_id) as games_played,
-          AVG(CAST(goals AS INTEGER)) as avg_goals
-        FROM AFL_data 
-        WHERE player_team = ? 
-          AND goals IS NOT NULL 
-          AND goals != ''
-        GROUP BY player_id, player_first_name, player_last_name
-        ORDER BY total_goals DESC 
-        LIMIT 10
-      `,
-      args: [teamName]
-    });
+    const topGoals = Object.values(playerStats)
+      .map(p => ({ ...p, avg_goals: (p.total_goals / p.games_played).toFixed(1) }))
+      .sort((a, b) => b.total_goals - a.total_goals)
+      .slice(0, 10);
 
     res.json({
       team: teamName,
-      stats: teamStats.rows[0],
-      topDisposals: topDisposals.rows,
-      topGoals: topGoals.rows
+      stats: teamStats,
+      topDisposals,
+      topGoals
     });
   } catch (error) {
     console.error('Error fetching team details:', error);
@@ -150,19 +218,38 @@ app.get('/teams/:teamName', async (req, res) => {
 // Endpoint: get alphabet letters with player counts
 app.get('/players/alphabet', async (_, res) => {
   try {
-    const letters = await db.execute(`
-      SELECT 
-        UPPER(SUBSTR(player_last_name, 1, 1)) as letter,
-        COUNT(DISTINCT player_id) as player_count
-      FROM AFL_data
-      WHERE player_id IS NOT NULL AND player_id != ''
-        AND player_first_name IS NOT NULL AND player_first_name != ''
-        AND player_last_name IS NOT NULL AND player_last_name != ''
-      GROUP BY letter
-      HAVING letter GLOB '[A-Z]'
-      ORDER BY letter
-    `);
-    res.json(letters.rows);
+    const { data: playersData, error } = await supabase
+      .from('afl_data')
+      .select('player_first_name, player_last_name, player_id')
+      .not('player_id', 'is', null)
+      .neq('player_id', '')
+      .not('player_first_name', 'is', null)
+      .neq('player_first_name', '')
+      .not('player_last_name', 'is', null)
+      .neq('player_last_name', '');
+
+    if (error) throw error;
+
+    // Count unique players by first letter
+    const letterCounts = {};
+    const uniquePlayers = new Set();
+    
+    playersData.forEach(row => {
+      const playerId = row.player_id;
+      if (!uniquePlayers.has(playerId) && row.player_last_name) {
+        uniquePlayers.add(playerId);
+        const letter = row.player_last_name.charAt(0).toUpperCase();
+        if (/[A-Z]/.test(letter)) {
+          letterCounts[letter] = (letterCounts[letter] || 0) + 1;
+        }
+      }
+    });
+
+    const letters = Object.entries(letterCounts)
+      .map(([letter, player_count]) => ({ letter, player_count }))
+      .sort((a, b) => a.letter.localeCompare(b.letter));
+
+    res.json(letters);
   } catch (error) {
     console.error('Error fetching players alphabet:', error);
     res.status(500).json({ error: 'Failed to fetch players alphabet' });
@@ -178,29 +265,60 @@ app.get('/players', async (req, res) => {
   }
   
   try {
-    const players = await db.execute({
-      sql: `
-        SELECT 
-          player_id,
-          player_first_name,
-          player_last_name,
-          COUNT(DISTINCT match_id) as total_games,
-          SUM(CASE WHEN disposals IS NOT NULL AND disposals != '' THEN CAST(disposals AS INTEGER) ELSE 0 END) as total_disposals,
-          SUM(CASE WHEN goals IS NOT NULL AND goals != '' THEN CAST(goals AS INTEGER) ELSE 0 END) as total_goals,
-          MIN(substr(match_date, 1, 4)) as first_year,
-          MAX(substr(match_date, 1, 4)) as last_year
-        FROM AFL_data
-        WHERE player_id IS NOT NULL AND player_id != ''
-          AND player_first_name IS NOT NULL AND player_first_name != ''
-          AND player_last_name IS NOT NULL AND player_last_name != ''
-          AND UPPER(SUBSTR(player_last_name, 1, 1)) = UPPER(?)
-        GROUP BY player_id, player_first_name, player_last_name
-        HAVING total_games > 0
-        ORDER BY player_last_name, player_first_name
-      `,
-      args: [letter]
+    const { data: playersData, error } = await supabase
+      .from('afl_data')
+      .select(`
+        player_id, player_first_name, player_last_name,
+        disposals, goals, match_date
+      `)
+      .not('player_id', 'is', null)
+      .neq('player_id', '')
+      .not('player_first_name', 'is', null)
+      .neq('player_first_name', '')
+      .not('player_last_name', 'is', null)
+      .neq('player_last_name', '')
+      .ilike('player_last_name', `${letter}%`);
+
+    if (error) throw error;
+
+    // Aggregate by player
+    const playerStats = {};
+    playersData.forEach(row => {
+      const playerId = row.player_id;
+      if (!playerStats[playerId]) {
+        playerStats[playerId] = {
+          player_id: playerId,
+          player_first_name: row.player_first_name,
+          player_last_name: row.player_last_name,
+          total_games: 0,
+          total_disposals: 0,
+          total_goals: 0,
+          years: new Set()
+        };
+      }
+      
+      playerStats[playerId].total_games++;
+      playerStats[playerId].total_disposals += parseInt(row.disposals) || 0;
+      playerStats[playerId].total_goals += parseInt(row.goals) || 0;
+      
+      if (row.match_date) {
+        playerStats[playerId].years.add(row.match_date.substring(0, 4));
+      }
     });
-    res.json(players.rows);
+
+    const players = Object.values(playerStats)
+      .map(player => ({
+        ...player,
+        first_year: player.years.size > 0 ? Math.min(...Array.from(player.years)) : null,
+        last_year: player.years.size > 0 ? Math.max(...Array.from(player.years)) : null
+      }))
+      .filter(player => player.total_games > 0)
+      .sort((a, b) => {
+        const lastNameCompare = a.player_last_name.localeCompare(b.player_last_name);
+        return lastNameCompare !== 0 ? lastNameCompare : a.player_first_name.localeCompare(b.player_first_name);
+      });
+
+    res.json(players);
   } catch (error) {
     console.error('Error fetching players:', error);
     res.status(500).json({ error: 'Failed to fetch players' });
@@ -212,39 +330,58 @@ app.get('/players/:playerId', async (req, res) => {
   const { playerId } = req.params;
   
   try {
-    const playerStats = await db.execute({
-      sql: `
-        SELECT 
-          player_first_name,
-          player_last_name,
-          COUNT(DISTINCT match_id) as total_games,
-          SUM(CASE WHEN disposals IS NOT NULL AND disposals != '' THEN CAST(disposals AS INTEGER) ELSE 0 END) as total_disposals,
-          SUM(CASE WHEN goals IS NOT NULL AND goals != '' THEN CAST(goals AS INTEGER) ELSE 0 END) as total_goals,
-          MIN(substr(match_date, 1, 4)) as first_year,
-          MAX(substr(match_date, 1, 4)) as last_year
-        FROM AFL_data 
-        WHERE player_id = ?
-        GROUP BY player_id, player_first_name, player_last_name
-      `,
-      args: [playerId]
+    const { data: playerData, error } = await supabase
+      .from('afl_data')
+      .select(`
+        player_first_name, player_last_name, player_id,
+        disposals, goals, match_date, match_id, match_round, venue_name,
+        match_home_team, match_away_team, player_team,
+        kicks, handballs, marks, tackles
+      `)
+      .eq('player_id', playerId);
+
+    if (error) throw error;
+
+    if (playerData.length === 0) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+
+    // Calculate career stats
+    const playerName = {
+      player_first_name: playerData[0].player_first_name,
+      player_last_name: playerData[0].player_last_name
+    };
+
+    let totalDisposals = 0;
+    let totalGoals = 0;
+    let totalGames = 0;
+    const years = new Set();
+
+    playerData.forEach(game => {
+      totalDisposals += parseInt(game.disposals) || 0;
+      totalGoals += parseInt(game.goals) || 0;
+      totalGames++;
+      if (game.match_date) {
+        years.add(game.match_date.substring(0, 4));
+      }
     });
 
-    const allGames = await db.execute({
-      sql: `
-        SELECT 
-          match_id, match_date, match_round, venue_name,
-          match_home_team, match_away_team, player_team,
-          disposals, goals, kicks, handballs, marks, tackles
-        FROM AFL_data 
-        WHERE player_id = ?
-        ORDER BY match_date DESC
-      `,
-      args: [playerId]
-    });
+    const playerStats = {
+      ...playerName,
+      total_games: totalGames,
+      total_disposals: totalDisposals,
+      total_goals: totalGoals,
+      first_year: years.size > 0 ? Math.min(...Array.from(years)) : null,
+      last_year: years.size > 0 ? Math.max(...Array.from(years)) : null
+    };
+
+    // Sort games by date desc
+    const allGames = playerData
+      .sort((a, b) => new Date(b.match_date) - new Date(a.match_date));
 
     res.json({
-      player: playerStats.rows[0],
-      allGames: allGames.rows
+      player: playerStats,
+      allGames: allGames
     });
   } catch (error) {
     console.error('Error fetching player details:', error);
@@ -265,28 +402,45 @@ app.get('/trophy-room', async (_, res) => {
 
     for (const stat of keyStats) {
       try {
-        const result = await db.execute({
-          sql: `
-            SELECT 
-              player_first_name,
-              player_last_name,
-              player_id,
-              SUM(CAST(${stat.column} AS INTEGER)) as stat_value,
-              COUNT(DISTINCT match_id) as games_played
-            FROM AFL_data 
-            WHERE ${stat.column} IS NOT NULL 
-              AND ${stat.column} != ''
-              AND CAST(${stat.column} AS INTEGER) > 0
-            GROUP BY player_id, player_first_name, player_last_name
-            ORDER BY stat_value DESC 
-            LIMIT 1
-          `
+        const { data: result, error } = await supabase
+          .from('afl_data')
+          .select(`
+            player_first_name, player_last_name, player_id,
+            ${stat.column}
+          `)
+          .not(stat.column, 'is', null)
+          .neq(stat.column, '')
+          .gt(stat.column, 0);
+
+        if (error) {
+          console.error(`Error fetching ${stat.name}:`, error);
+          continue;
+        }
+
+        // Aggregate by player
+        const playerStats = {};
+        result.forEach(row => {
+          const playerId = row.player_id;
+          if (!playerStats[playerId]) {
+            playerStats[playerId] = {
+              player_first_name: row.player_first_name,
+              player_last_name: row.player_last_name,
+              player_id: playerId,
+              stat_value: 0,
+              games_played: 0
+            };
+          }
+          playerStats[playerId].stat_value += parseInt(row[stat.column]) || 0;
+          playerStats[playerId].games_played += 1;
         });
-        
-        if (result.rows.length > 0) {
+
+        const topPlayer = Object.values(playerStats)
+          .sort((a, b) => b.stat_value - a.stat_value)[0];
+
+        if (topPlayer) {
           trophyHolders.push({
             ...stat,
-            player: result.rows[0]
+            player: topPlayer
           });
         }
       } catch (statError) {

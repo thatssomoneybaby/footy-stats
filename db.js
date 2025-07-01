@@ -1,11 +1,14 @@
 import { config } from 'dotenv';
-config({ path: '.env.local' });
+config();
 
-import { createClient } from '@libsql/client';
+import { createClient } from '@supabase/supabase-js';
 
-const client = createClient({
-  url: process.env.TURSO_DB_URL,
-  authToken: process.env.TURSO_DB_AUTH_TOKEN,
-});
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
-export const db = client;
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase environment variables: SUPABASE_URL and SUPABASE_ANON_KEY are required');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey);
+export const db = supabase; // Keep db export for compatibility

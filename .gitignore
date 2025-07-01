@@ -1,31 +1,62 @@
 # Dependencies
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Environment variables
 .env
 .env.local
-.env.production
-.env.development
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Database files
-afl_api/afl-api/afl_data.sqlite
-afl_api/afl-api/afl_data.sqlite-shm
-afl_api/afl-api/afl_data.sqlite-wal
+# Build outputs
+.next/
+dist/
+build/
 
-# Vercel
-.vercel
+# Logs
+*.log
+logs
 
-# OS generated files
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# macOS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs.db
-Thumbs.db
 
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# Vercel
+.vercel
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database files (local development)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Temporary files
+*.tmp
+*.temp
+
+# Test files
+test-*.js
