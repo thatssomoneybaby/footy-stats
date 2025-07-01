@@ -224,7 +224,7 @@ window.showGameInsights = async function(homeTeam, awayTeam) {
               by ${h2hData.lastMeeting.margin} points
             </div>
             <div class="text-sm text-gray-600 mt-2">
-              ${h2hData.lastMeeting.match_home_team} ${h2hData.lastMeeting.home_score} - ${h2hData.lastMeeting.away_score} ${h2hData.lastMeeting.match_away_team}
+              ${h2hData.lastMeeting.match_home_team} ${h2hData.lastMeeting.match_home_team_score} - ${h2hData.lastMeeting.match_away_team_score} ${h2hData.lastMeeting.match_away_team}
             </div>
             <div class="text-sm text-gray-600">
               ${new Date(h2hData.lastMeeting.match_date).toLocaleDateString('en-AU')} • ${h2hData.lastMeeting.venue_name} • ${h2hData.lastMeeting.match_round}
