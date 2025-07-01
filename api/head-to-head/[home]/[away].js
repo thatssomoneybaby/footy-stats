@@ -20,23 +20,36 @@ export default async function handler(req, res) {
       match_home_team_score,
       match_away_team_score,
       match_round
-    `)
+    `, { distinct: ['match_id'] })
     .or(`match_home_team.eq.${home},match_home_team.eq.${away}`)
     .or(`match_away_team.eq.${away},match_away_team.eq.${home}`)
     .order('match_date', { ascending: false });
 
   if (error) return res.status(500).json({ error });
 
-  const summary = { totalGames: games.length, [home]: 0, [away]: 0 };
-  games.forEach(g => {
-    summary[g.match_winner] = (summary[g.match_winner] || 0) + 1;
+  const uniqueGames = games.map(g => ({
+    match_id: g.match_id,
+    match_date: g.match_date,
+    venue_name: g.venue_name,
+    homeTeam: g.match_home_team,
+    awayTeam: g.match_away_team,
+    winner: g.match_winner,
+    margin: g.match_margin,
+    homeScore: g.match_home_team_score,
+    awayScore: g.match_away_team_score,
+    match_round: g.match_round
+  }));
+
+  const summary = { totalGames: uniqueGames.length, [home]: 0, [away]: 0 };
+  uniqueGames.forEach(g => {
+    summary[g.winner] = (summary[g.winner] || 0) + 1;
   });
 
-  const lastMeeting = games[0] || null;
+  const lastMeeting = uniqueGames[0] || null;
   const biggestWins = {};
-  games.forEach(g => {
-    if (!biggestWins[g.match_winner] || g.match_margin > biggestWins[g.match_winner].margin) {
-      biggestWins[g.match_winner] = { margin: g.match_margin, ...g };
+  uniqueGames.forEach(g => {
+    if (!biggestWins[g.winner] || g.margin > biggestWins[g.winner].margin) {
+      biggestWins[g.winner] = { margin: g.margin, ...g };
     }
   });
 
@@ -56,6 +69,6 @@ export default async function handler(req, res) {
     biggestWins,
     lastMeeting,
     lastMeetingPerformers: { topGoals, topDisposals },
-    headToHeadHistory: games
+    headToHeadHistory: uniqueGames
   });
 }

@@ -1,9 +1,6 @@
 let cache = { ts: 0, data: [] };          // 10-minute in-memory cache
 
 export default async function handler(req, res) {
-  // dynamically use the current year to avoid off-season queries
-  const year = new Date().getFullYear();
-
   //  === 1. Respect GET only  ============================================
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -15,8 +12,8 @@ export default async function handler(req, res) {
       return res.status(200).json(cache.data);
     }
 
-    //  === 3. Fetch next eight fixtures from Squiggle  ===================
-    const url = `https://api.squiggle.com.au/?q=games;year=${year};coming=8;format=json`;
+    //  === 3. Fetch next fixtures from Squiggle  ========================
+    const url = `https://api.squiggle.com.au/?q=games;complete=0;format=json`;
 
     const rsp = await fetch(url, {
       headers: {
@@ -29,9 +26,21 @@ export default async function handler(req, res) {
 
     const { games } = await rsp.json();
 
+    const now = Date.now();
+    // Only future games
+    const futureGames = games.filter(g => Date.parse(g.date) > now);
+    // Sort ascending by date
+    futureGames.sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
+    // Determine upcoming round
+    const nextRound = futureGames.length ? futureGames[0].round : null;
+    // Filter games to that round
+    const upcoming = nextRound !== null
+      ? futureGames.filter(g => g.round === nextRound)
+      : [];
+
     //  === 4. Cache & return  ============================================
-    cache = { ts: Date.now(), data: games };
-    res.status(200).json(games);
+    cache = { ts: Date.now(), data: upcoming };
+    res.status(200).json(upcoming);
   } catch (err) {
     console.error('Upcoming-games fetch failed:', err);
     res.status(500).json({ error: 'Failed to fetch fixture' });
