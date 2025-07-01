@@ -203,3 +203,21 @@ td {
 .menu a:hover {
   text-decoration: underline;
 }
+
+/* Live game dot indicator */
+.live-dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e11d48;
+  margin-right: 6px;
+  display: inline-block;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}

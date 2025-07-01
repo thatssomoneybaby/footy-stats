@@ -88,8 +88,8 @@ export async function getInsights() {
 }
 
 export async function getUpcomingGames() {
-  // Placeholder - not implemented in consolidated version
-  return [];
+  const res = await fetch('/api/upcoming-games');
+  return res.json();          // returns an array of fixture objects
 }
 
 export async function getTopPerformers(teamName) {
@@ -97,9 +97,11 @@ export async function getTopPerformers(teamName) {
   return {};
 }
 
-export async function getHeadToHead(team1, team2) {
-  // Placeholder - not implemented in consolidated version
-  return {};
+export async function getHeadToHead(home, away) {
+  const res = await fetch(
+    `/api/head-to-head/${encodeURIComponent(home)}/${encodeURIComponent(away)}`
+  );
+  return res.json();
 }
 
 export async function getMatchById(matchId) {

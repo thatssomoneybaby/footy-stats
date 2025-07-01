@@ -35,41 +35,20 @@ const insightsLoading = document.getElementById('insights-loading');
 const insightsContent = document.getElementById('insights-content');
 const insightsError = document.getElementById('insights-error');
 
-// Load recent games instead of upcoming games (since upcoming games is not implemented)
+// Load upcoming games using real getUpcomingGames data
 async function loadUpcomingGames() {
   try {
-    // Show insights instead since upcoming games is not implemented
-    upcomingGamesLoading.classList.add('hidden');
-    upcomingGamesContent.innerHTML = `
-      <div class="text-center py-8">
-        <div class="text-4xl mb-4">📊</div>
-        <h3 class="text-xl font-semibold text-gray-900 mb-3">Explore AFL Historical Statistics</h3>
-        <p class="text-gray-600 mb-4">Discover comprehensive AFL statistics from 1897 to present day.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a href="years.html" class="block p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">
-            <h4 class="font-semibold text-afl-blue mb-2">🗓️ Browse by Season</h4>
-            <p class="text-sm text-gray-600">Explore matches and statistics for each AFL season since 1897</p>
-          </a>
-          <a href="players.html" class="block p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors">
-            <h4 class="font-semibold text-green-700 mb-2">👤 Player Statistics</h4>
-            <p class="text-sm text-gray-600">Individual player stats and career summaries</p>
-          </a>
-          <a href="teams.html" class="block p-4 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors">
-            <h4 class="font-semibold text-purple-700 mb-2">🏟️ Team Performance</h4>
-            <p class="text-sm text-gray-600">Team statistics and historical data</p>
-          </a>
-          <a href="trophy-room.html" class="block p-4 bg-yellow-50 rounded-lg border border-yellow-200 hover:bg-yellow-100 transition-colors">
-            <h4 class="font-semibold text-yellow-700 mb-2">🏆 Trophy Room</h4>
-            <p class="text-sm text-gray-600">Record holders for every statistical category</p>
-          </a>
-        </div>
-      </div>
-    `;
+    upcomingGamesLoading.classList.remove('hidden');
+
+    const games = await getUpcomingGames();   // ← now real data
+    renderUpcomingGames(games);
+
     upcomingGamesContent.classList.remove('hidden');
-  } catch (error) {
-    console.error('Error loading upcoming games:', error);
-    upcomingGamesLoading.classList.add('hidden');
+  } catch (err) {
+    console.error(err);
     upcomingGamesError.classList.remove('hidden');
+  } finally {
+    upcomingGamesLoading.classList.add('hidden');
   }
 }
 
@@ -122,6 +101,7 @@ function renderUpcomingGames(games) {
     gameCard.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <div class="text-sm font-medium text-gray-900">
+          ${game.status === 'LIVE' ? `<span class="live-dot">LIVE</span>` : ''}
           ${game.hteam} vs ${game.ateam}
         </div>
         <div class="text-right">
@@ -381,4 +361,12 @@ window.showGameInsights = async function(homeTeam, awayTeam) {
 document.addEventListener('DOMContentLoaded', () => {
   loadUpcomingGames();
   loadInsights();
+
+  // Live updates after DOM is ready
+  import('./live.js').then(({ listenLiveGames }) => {
+    listenLiveGames({
+      onGame:   (g) => updateLiveCard(g),
+      onRemove: (g) => markFinalScore(g)
+    });
+  });
 });
