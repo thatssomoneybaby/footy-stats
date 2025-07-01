@@ -81,7 +81,7 @@ const friendlyNames = {
   player_position: "Position",
   date: "Date"
 };
-import { getYears, getMatches, getRounds, getRoundMatches } from './api.js';
+import { getYears, getMatches, getRounds, getRoundMatches, getMatchById } from './api.js';
 
 const sidebar = document.getElementById('year-bar');  // container for dynamic year buttons
 const table = document.getElementById('matches-table');
@@ -119,7 +119,7 @@ function renderRounds(year, rounds) {
   
   rounds.forEach(round => {
     const roundButton = document.createElement('button');
-    roundButton.className = 'p-3 bg-white border border-gray-300 rounded-lg hover:bg-afl-blue hover:text-white transition-colors text-center';
+    roundButton.className = 'px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700';
     roundButton.innerHTML = `
       <div class="font-semibold">${round.match_round}</div>
       <div class="text-sm text-gray-500">${round.match_count} matches</div>
@@ -127,9 +127,9 @@ function renderRounds(year, rounds) {
     roundButton.onclick = async () => {
       // Update button states
       roundsContainer.querySelectorAll('button').forEach(b => {
-        b.className = 'p-3 bg-white border border-gray-300 rounded-lg hover:bg-afl-blue hover:text-white transition-colors text-center';
+        b.className = 'px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700';
       });
-      roundButton.className = 'p-3 bg-afl-blue text-white border border-afl-blue rounded-lg text-center';
+      roundButton.className = 'px-4 py-2 bg-afl-blue text-white border border-afl-blue rounded-lg font-medium';
       
       // Load matches for this round
       const matches = await getRoundMatches(year, round.match_round);
@@ -172,6 +172,33 @@ function renderMatches(matches) {
         </div>
       </div>
     `;
+    // Add onclick event for match details popup
+    matchCard.onclick = async () => {
+      // getMatchById may be imported elsewhere, but we assume it's available globally or imported
+      const matchDetails = await getMatchById(match.match_id);
+      if (!matchDetails || matchDetails.length === 0) return;
+
+      const detailWindow = window.open('', '_blank', 'width=1000,height=700');
+      detailWindow.document.write('<html><head><title>Match Stats</title><style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}th{background:#f4f4f4;}</style></head><body>');
+      detailWindow.document.write(`<h1>${match.match_home_team} vs ${match.match_away_team}</h1>`);
+      detailWindow.document.write(`<p>${match.match_date} • ${match.venue_name}</p>`);
+
+      const keys = Object.keys(matchDetails[0]).filter(key => matchDetails.some(row => row[key]));
+      detailWindow.document.write('<table><thead><tr>');
+      keys.forEach(k => {
+        detailWindow.document.write(`<th>${friendlyNames[k] || k}</th>`);
+      });
+      detailWindow.document.write('</tr></thead><tbody>');
+      matchDetails.forEach(player => {
+        detailWindow.document.write('<tr>');
+        keys.forEach(k => {
+          detailWindow.document.write(`<td>${player[k] ?? ''}</td>`);
+        });
+        detailWindow.document.write('</tr>');
+      });
+      detailWindow.document.write('</tbody></table></body></html>');
+      detailWindow.document.close();
+    };
     matchesContainer.appendChild(matchCard);
   });
 }

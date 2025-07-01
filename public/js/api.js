@@ -101,3 +101,21 @@ export async function getHeadToHead(team1, team2) {
   // Placeholder - not implemented in consolidated version
   return {};
 }
+
+export async function getMatchById(matchId) {
+  try {
+    const res = await fetch(`${BASE}/match/${matchId}`);
+    if (!res.ok) {
+      console.error('Match API error:', res.status, res.statusText);
+      const errorData = await res.text();
+      console.error('Error details:', errorData);
+      return null;
+    }
+    const data = await res.json();
+    console.log('Match data received:', data);
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch match:', error);
+    return null;
+  }
+}
