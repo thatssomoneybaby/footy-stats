@@ -32,7 +32,8 @@ export default async function handler(req, res) {
           `)
           .not(stat.column, 'is', null)
           .neq(stat.column, '')
-          .gt(stat.column, 0);
+          .gt(stat.column, 0)
+          .range(0, 200000); // Get enough data for trophy calculations
 
         if (error) {
           console.error(`Error fetching ${stat.name}:`, error);
@@ -153,7 +154,8 @@ export default async function handler(req, res) {
               `)
               .not(stat.column, 'is', null)
               .neq(stat.column, '')
-              .gt(stat.column, 0);
+              .gt(stat.column, 0)
+              .range(0, 200000); // Get enough data for hall of records
 
             if (error) {
               console.error(`Error processing stat ${stat.name}:`, error);
@@ -224,7 +226,8 @@ export default async function handler(req, res) {
           match_home_team_score, match_away_team_score, match_margin,
           match_date, match_round, venue_name
         `)
-        .or(`match_home_team.eq.${teamName},match_away_team.eq.${teamName}`);
+        .or(`match_home_team.eq.${teamName},match_away_team.eq.${teamName}`)
+        .range(0, 100000); // Get enough data for team's full history
 
       if (matchesError) throw matchesError;
 
@@ -269,7 +272,8 @@ export default async function handler(req, res) {
         `)
         .eq('player_team', teamName)
         .not('disposals', 'is', null)
-        .neq('disposals', '');
+        .neq('disposals', '')
+        .range(0, 100000); // Get enough data for team's player history
 
       if (playerError) throw playerError;
 

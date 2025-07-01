@@ -77,7 +77,8 @@ export default async function handler(req, res) {
           player_first_name, player_last_name, player_id,
           disposals, goals, match_date
         `)
-        .eq('player_id', playerId);
+        .eq('player_id', playerId)
+        .range(0, 50000); // Get all games for this player
 
       if (error) throw error;
 
@@ -124,7 +125,7 @@ export default async function handler(req, res) {
         `)
         .eq('player_id', playerId)
         .order('match_date', { ascending: false })
-        .limit(50);
+        .range(0, 200); // Get more games for player history
 
       if (gamesError) throw gamesError;
 

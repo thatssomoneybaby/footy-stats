@@ -89,7 +89,8 @@ export default async function handler(req, res) {
           .gte('match_date', `${year}-01-01`)
           .lt('match_date', `${parseInt(year) + 1}-01-01`)
           .not('match_round', 'is', null)
-          .neq('match_round', '');
+          .neq('match_round', '')
+          .range(0, 50000); // Get enough data for a full year
 
         if (error) throw error;
         
@@ -146,7 +147,7 @@ export default async function handler(req, res) {
           .gte('match_date', `${year}-01-01`)
           .lt('match_date', `${parseInt(year) + 1}-01-01`)
           .order('match_date', { ascending: false })
-          .limit(100);
+          .range(0, 10000); // Get more matches for the year
 
         if (error) throw error;
         
