@@ -174,30 +174,51 @@ function renderMatches(matches) {
     `;
     // Add onclick event for match details popup
     matchCard.onclick = async () => {
-      // getMatchById may be imported elsewhere, but we assume it's available globally or imported
       const matchDetails = await getMatchById(match.match_id);
       if (!matchDetails || matchDetails.length === 0) return;
 
-      const detailWindow = window.open('', '_blank', 'width=1000,height=700');
-      detailWindow.document.write('<html><head><title>Match Stats</title><style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}th{background:#f4f4f4;}</style></head><body>');
-      detailWindow.document.write(`<h1>${match.match_home_team} vs ${match.match_away_team}</h1>`);
-      detailWindow.document.write(`<p>${match.match_date} • ${match.venue_name}</p>`);
+      // Remove existing detail if already present
+      const existingDetail = matchCard.querySelector('.match-detail');
+      if (existingDetail) {
+        existingDetail.remove();
+        return;
+      }
+
+      const detailContainer = document.createElement('div');
+      detailContainer.className = 'match-detail mt-4 overflow-auto';
 
       const keys = Object.keys(matchDetails[0]).filter(key => matchDetails.some(row => row[key]));
-      detailWindow.document.write('<table><thead><tr>');
+
+      const table = document.createElement('table');
+      table.className = 'w-full border-collapse text-sm border border-gray-200';
+
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
       keys.forEach(k => {
-        detailWindow.document.write(`<th>${friendlyNames[k] || k}</th>`);
+        const th = document.createElement('th');
+        th.textContent = friendlyNames[k] || k;
+        th.className = 'border border-gray-300 px-2 py-1 bg-gray-100 text-gray-900 text-left font-medium';
+        headerRow.appendChild(th);
       });
-      detailWindow.document.write('</tr></thead><tbody>');
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
       matchDetails.forEach(player => {
-        detailWindow.document.write('<tr>');
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
         keys.forEach(k => {
-          detailWindow.document.write(`<td>${player[k] ?? ''}</td>`);
+          const td = document.createElement('td');
+          td.textContent = player[k] ?? '';
+          td.className = 'border border-gray-300 px-2 py-1 text-gray-700';
+          tr.appendChild(td);
         });
-        detailWindow.document.write('</tr>');
+        tbody.appendChild(tr);
       });
-      detailWindow.document.write('</tbody></table></body></html>');
-      detailWindow.document.close();
+      table.appendChild(tbody);
+
+      detailContainer.appendChild(table);
+      matchCard.appendChild(detailContainer);
     };
     matchesContainer.appendChild(matchCard);
   });
