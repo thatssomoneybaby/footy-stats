@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { year, round, years } = req.query;
+  const { year, round, years, rounds } = req.query;
 
   try {
     const db = createClient({
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       });
       res.json(matches.rows);
     } else if (year) {
-      if (req.url.includes('rounds')) {
+      if (rounds === 'true') {
         // Rounds for a year
         const rounds = await db.execute({
           sql: `

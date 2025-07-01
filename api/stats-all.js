@@ -69,30 +69,77 @@ export default async function handler(req, res) {
 
       res.json(insights);
     } else if (type === 'hall-of-records') {
-      // Simplified hall of records
-      const records = {};
-      const stats = [
-        { name: 'Goals', column: 'goals' },
-        { name: 'Disposals', column: 'disposals' },
-        { name: 'Tackles', column: 'tackles' }
-      ];
+      // Restore original hall of records structure
+      const statCategories = {
+        'Scoring': {
+          icon: '⚽',
+          color: 'red',
+          stats: [
+            { name: 'Goals', column: 'goals', icon: '⚽' },
+            { name: 'Behinds', column: 'behinds', icon: '🎯' }
+          ]
+        },
+        'Possession': {
+          icon: '🏐',
+          color: 'blue',
+          stats: [
+            { name: 'Disposals', column: 'disposals', icon: '🎯' },
+            { name: 'Kicks', column: 'kicks', icon: '🦵' },
+            { name: 'Handballs', column: 'handballs', icon: '✋' }
+          ]
+        },
+        'Defence': {
+          icon: '🛡️',
+          color: 'purple',
+          stats: [
+            { name: 'Tackles', column: 'tackles', icon: '💪' },
+            { name: 'Marks', column: 'marks', icon: '🙌' }
+          ]
+        }
+      };
 
-      for (const stat of stats) {
-        const top10 = await db.execute({
-          sql: `
-            SELECT player_first_name, player_last_name, player_id,
-                   SUM(CAST(${stat.column} AS INTEGER)) as stat_value,
-                   COUNT(DISTINCT match_id) as games_played
-            FROM AFL_data 
-            WHERE ${stat.column} IS NOT NULL AND ${stat.column} != ''
-              AND CAST(${stat.column} AS INTEGER) > 0
-            GROUP BY player_id, player_first_name, player_last_name
-            ORDER BY stat_value DESC LIMIT 10
-          `
-        });
-        records[stat.name] = { top10: top10.rows };
+      const hallOfRecords = {};
+
+      // Process each category
+      for (const [categoryName, categoryData] of Object.entries(statCategories)) {
+        hallOfRecords[categoryName] = {
+          ...categoryData,
+          records: {}
+        };
+
+        // Process each stat in the category
+        for (const stat of categoryData.stats) {
+          try {
+            const top10 = await db.execute({
+              sql: `
+                SELECT 
+                  player_first_name, player_last_name, player_id,
+                  SUM(CAST(${stat.column} AS INTEGER)) as stat_value,
+                  COUNT(DISTINCT match_id) as games_played,
+                  AVG(CAST(${stat.column} AS INTEGER)) as avg_per_game,
+                  MIN(substr(match_date, 1, 4)) as first_year,
+                  MAX(substr(match_date, 1, 4)) as last_year
+                FROM AFL_data 
+                WHERE ${stat.column} IS NOT NULL AND ${stat.column} != ''
+                  AND CAST(${stat.column} AS INTEGER) > 0
+                GROUP BY player_id, player_first_name, player_last_name
+                ORDER BY stat_value DESC LIMIT 10
+              `
+            });
+
+            if (top10.rows.length > 0) {
+              hallOfRecords[categoryName].records[stat.name] = {
+                ...stat,
+                top10: top10.rows
+              };
+            }
+          } catch (statError) {
+            console.error(`Error processing stat ${stat.name}:`, statError);
+          }
+        }
       }
-      res.json(records);
+
+      res.json(hallOfRecords);
     } else {
       res.status(400).json({ error: 'Missing or invalid type parameter' });
     }
