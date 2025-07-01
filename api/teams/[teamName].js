@@ -73,11 +73,58 @@ export default async function handler(req, res) {
       args: [teamName]
     });
 
+    // Get grand finals wins
+    const grandFinals = await db.execute({
+      sql: `
+        SELECT COUNT(DISTINCT match_id) as grand_finals_won
+        FROM AFL_data 
+        WHERE (match_home_team = ? OR match_away_team = ?)
+          AND (match_round = 'GF' OR match_round = 'Grand Final')
+          AND match_winner = ?
+      `,
+      args: [teamName, teamName, teamName]
+    });
+
+    // Get biggest win margin
+    const biggestWin = await db.execute({
+      sql: `
+        SELECT DISTINCT 
+          match_date,
+          match_home_team,
+          match_away_team,
+          CAST(match_margin AS INTEGER) as margin,
+          venue_name
+        FROM AFL_data
+        WHERE match_winner = ?
+        ORDER BY CAST(match_margin AS INTEGER) DESC
+        LIMIT 1
+      `,
+      args: [teamName]
+    });
+
+    // Get all games for this team (limited for performance)
+    const allGames = await db.execute({
+      sql: `
+        SELECT DISTINCT 
+          match_id, match_home_team, match_away_team, match_winner, 
+          match_home_team_score, match_away_team_score, match_margin, 
+          match_date, match_round, venue_name
+        FROM AFL_data 
+        WHERE match_home_team = ? OR match_away_team = ?
+        ORDER BY match_date DESC
+        LIMIT 50
+      `,
+      args: [teamName, teamName]
+    });
+
     res.json({
       team: teamName,
       stats: teamStats.rows[0],
       topDisposals: topDisposals.rows,
-      topGoals: topGoals.rows
+      topGoals: topGoals.rows,
+      grandFinals: grandFinals.rows[0],
+      biggestWin: biggestWin.rows[0],
+      allGames: allGames.rows
     });
   } catch (error) {
     console.error('Error fetching team details:', error);

@@ -13,6 +13,16 @@ export async function getMatches(year) {
   return res.json();
 }
 
+export async function getRounds(year) {
+  const res = await fetch(`${BASE}/rounds?year=${year}`);
+  return res.json();
+}
+
+export async function getRoundMatches(year, round) {
+  const res = await fetch(`${BASE}/rounds?year=${year}&round=${encodeURIComponent(round)}`);
+  return res.json();
+}
+
 export async function getTeams() {
   const res = await fetch(`${BASE}/teams`);
   return res.json();
