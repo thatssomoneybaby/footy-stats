@@ -205,6 +205,29 @@ function renderMatches(matches) {
       const detailContainer = document.createElement('div');
       detailContainer.className = 'match-detail mt-4 overflow-auto';
 
+      // Head-to-head summary
+      if (match.head_to_head_summary) {
+        const summary = match.head_to_head_summary;
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'mb-4 p-3 bg-gray-50 border border-gray-200 rounded';
+        summaryDiv.innerHTML = `
+          <div class="font-semibold mb-1">Head-to-head summary</div>
+          <div>
+            <span class="font-medium">${match.match_home_team}</span> wins: <span class="text-afl-blue">${summary.homeWins ?? 0}</span> &nbsp; | &nbsp;
+            <span class="font-medium">${match.match_away_team}</span> wins: <span class="text-afl-red">${summary.awayWins ?? 0}</span> &nbsp; | &nbsp;
+            Total meetings: <span class="text-gray-700">${summary.totalMeetings ?? 0}</span>
+          </div>
+          <div class="mt-1 text-gray-700">
+            Last meeting: ${summary.lastMeetingDate ? summary.lastMeetingDate : 'N/A'}
+            &mdash; Score: 
+            ${typeof summary.lastHomeScore === 'number' && typeof summary.lastAwayScore === 'number'
+              ? `${summary.lastHomeScore} - ${summary.lastAwayScore}`
+              : 'N/A'}
+          </div>
+        `;
+        detailContainer.appendChild(summaryDiv);
+      }
+
       const keys = Object.keys(matchDetails[0]).filter(key =>
         matchDetails.some(row => row[key] !== null && row[key] !== '')
       );
