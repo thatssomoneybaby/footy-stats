@@ -83,6 +83,8 @@ const friendlyNames = {
 };
 import { getYears, getMatches, getRounds, getRoundMatches, getMatchById } from './api.js';
 
+let currentSort = { key: null, direction: 'asc' };
+
 const sidebar = document.getElementById('year-bar');  // container for dynamic year buttons
 const table = document.getElementById('matches-table');
 const seasonTitle = document.getElementById('season-title');
@@ -119,7 +121,7 @@ function renderRounds(year, rounds) {
   
   rounds.forEach(round => {
     const roundButton = document.createElement('button');
-    roundButton.className = 'px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700';
+    roundButton.className = 'px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700 cursor-pointer';
     roundButton.innerHTML = `
       <div class="font-semibold">${round.match_round}</div>
       <div class="text-sm text-gray-500">${round.match_count} matches</div>
@@ -159,7 +161,7 @@ function renderMatches(matches) {
 
   matches.forEach(match => {
     const matchCard = document.createElement('div');
-    matchCard.className = 'p-4 bg-white border border-gray-200 rounded-lg mb-4';
+    matchCard.className = 'p-4 bg-white border border-gray-200 rounded-lg mb-4 cursor-pointer hover:cursor-pointer';
     matchCard.innerHTML = `
       <div class="flex justify-between items-center">
         <div class="flex-1">
@@ -179,6 +181,19 @@ function renderMatches(matches) {
     matchCard.onclick = async () => {
       const matchDetails = await getMatchById(match.match_id);
       if (!matchDetails || matchDetails.length === 0) return;
+
+      // Sort players: home team first (by last name), then away team (by last name)
+      const homeTeam = match.match_home_team;
+      const awayTeam = match.match_away_team;
+
+      matchDetails.sort((a, b) => {
+        if (a.player_team === b.player_team) {
+          return a.player_last_name.localeCompare(b.player_last_name);
+        }
+        if (a.player_team === homeTeam) return -1;
+        if (b.player_team === homeTeam) return 1;
+        return a.player_team.localeCompare(b.player_team);
+      });
 
       // Remove existing detail if already present
       const existingDetail = matchCard.querySelector('.match-detail');
@@ -203,6 +218,45 @@ function renderMatches(matches) {
         const th = document.createElement('th');
         th.textContent = friendlyNames[k] || k;
         th.className = 'border border-gray-300 px-2 py-1 bg-gray-100 text-gray-900 text-left font-medium';
+        th.style.cursor = 'pointer';
+        th.onclick = () => {
+          if (currentSort.key === k) {
+            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+          } else {
+            currentSort.key = k;
+            currentSort.direction = 'asc';
+          }
+
+          matchDetails.sort((a, b) => {
+            const valA = a[currentSort.key];
+            const valB = b[currentSort.key];
+
+            if (valA == null) return 1;
+            if (valB == null) return -1;
+
+            if (typeof valA === 'number' && typeof valB === 'number') {
+              return currentSort.direction === 'asc' ? valA - valB : valB - valA;
+            } else {
+              return currentSort.direction === 'asc'
+                ? String(valA).localeCompare(String(valB))
+                : String(valB).localeCompare(String(valA));
+            }
+          });
+
+          // Re-render table body
+          tbody.innerHTML = '';
+          matchDetails.forEach(player => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+            keys.forEach(k => {
+              const td = document.createElement('td');
+              td.textContent = player[k] ?? '';
+              td.className = 'border border-gray-300 px-2 py-1 text-gray-700';
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+          });
+        };
         headerRow.appendChild(th);
       });
       thead.appendChild(headerRow);
