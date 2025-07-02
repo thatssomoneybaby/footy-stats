@@ -4,7 +4,8 @@ import {
   getTeamMatchYears,
   getTeamStats,
   getTeamBestWin,
-  getGrandFinalWins
+  getGrandFinalWins,
+  getTeamMatchesByYear
 } from './api.js';
 
 const defaultColors = { primary: '--afl-blue', secondary: '--afl-blue-dark' };
@@ -22,7 +23,8 @@ const matchesList = document.getElementById('matches-list');
 const backButton = document.getElementById('back-to-teams');
 
 let currentTeams = [];
-let currentTeamGames = [];
+// Cache: { [year]: matches[] }
+let seasonMatches = {};
 
 // Team color mapping to CSS variables
 const teamColorMap = {
@@ -132,9 +134,6 @@ function renderTeamDetails(details) {
   // Set team name
   teamName.textContent = details.team;
   
-  // Store all games for filtering
-  currentTeamGames = details.allGames || [];
-  
   // Render summary stats
   const stats = details.stats;
   const winPercentage = stats.total_matches > 0 ? ((stats.wins / stats.total_matches) * 100).toFixed(1) : 0;
@@ -234,112 +233,113 @@ function renderTeamDetails(details) {
   }
   
   // Create year buttons
-  createTeamYearButtons();
+  createTeamYearButtons(details.team);
   
   // Clear matches list initially
   matchesList.innerHTML = '<p class="text-gray-600 text-center py-4">Select a year to view matches.</p>';
 }
 
-function createTeamYearButtons() {
-  const teamYears = document.getElementById('team-years');
+// Accepts team name, fetches years, resets cache, and builds year buttons
+async function createTeamYearButtons(team) {
+  const teamYears  = document.getElementById('team-years');
   const teamRounds = document.getElementById('team-rounds');
-  
-  // Clear existing buttons
-  teamYears.innerHTML = '';
+
+  teamYears.innerHTML  = '';
   teamRounds.innerHTML = '';
   teamRounds.classList.add('hidden');
-  
-  // Get unique years from games
-  const years = [...new Set(currentTeamGames.map(game => 
-    new Date(game.match_date).getFullYear()
-  ))].sort((a, b) => b - a);
-  
-  years.forEach(year => {
-    const btn = document.createElement('button');
-    btn.innerText = year;
-    btn.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
-    btn.onclick = () => {
-      // Update button states
-      document.querySelectorAll('#team-years button').forEach(b => {
-        b.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
-      });
-      btn.className = 'px-3 py-1.5 bg-afl-blue text-white border border-afl-blue rounded text-sm font-medium';
-      
-      // Show rounds for this year
-      showTeamRounds(year);
-    };
-    teamYears.appendChild(btn);
-  });
+  seasonMatches = {}; // reset cache
+
+  // fetch distinct years from the API
+  try {
+    const yearsData = await getTeamMatchYears(team);
+    const years = yearsData.map(y => y.match_year).sort((a, b) => b - a);
+
+    years.forEach(year => {
+      const btn = document.createElement('button');
+      btn.innerText = year;
+      btn.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
+      btn.onclick = () => {
+        document.querySelectorAll('#team-years button').forEach(b => {
+          b.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
+        });
+        btn.className = 'px-3 py-1.5 bg-afl-blue text-white border border-afl-blue rounded text-sm font-medium';
+        showTeamRounds(team, year);
+      };
+      teamYears.appendChild(btn);
+    });
+  } catch (err) {
+    console.error('Year list error', err);
+    teamYears.innerHTML = '<p class="text-red-600">Failed to load years.</p>';
+  }
 }
 
-function showTeamRounds(year) {
+// Loads and caches matches for a season, then builds round buttons
+async function showTeamRounds(team, year) {
   const teamRounds = document.getElementById('team-rounds');
-  
-  // Get games for this year
-  const yearGames = currentTeamGames.filter(game => 
-    new Date(game.match_date).getFullYear() === year
-  );
-  
-  // Get unique rounds
-  const rounds = [...new Set(yearGames.map(game => game.match_round))].sort((a, b) => {
-    const numA = parseInt(a), numB = parseInt(b);
-    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-    if (!isNaN(numA)) return -1;
-    if (!isNaN(numB)) return 1;
+  matchesList.innerHTML = '<p class="text-gray-600 text-center py-4">Loading…</p>';
+
+  // fetch season matches if not cached
+  if (!seasonMatches[year]) {
+    try {
+      seasonMatches[year] = await getTeamMatchesByYear(team, year);
+    } catch (err) {
+      console.error('Match fetch error', err);
+      matchesList.innerHTML = '<p class="text-red-600 text-center py-4">Failed to load matches.</p>';
+      return;
+    }
+  }
+
+  const yearGames = seasonMatches[year];
+  const rounds = [...new Set(yearGames.map(g => g.match_round))].sort((a, b) => {
+    const nA = parseInt(a), nB = parseInt(b);
+    if (!isNaN(nA) && !isNaN(nB)) return nA - nB;
+    if (!isNaN(nA)) return -1;
+    if (!isNaN(nB)) return 1;
     return a.localeCompare(b);
   });
-  
-  // Clear and show rounds
+
   teamRounds.innerHTML = '';
   teamRounds.classList.remove('hidden');
-  
+
   rounds.forEach(round => {
     const btn = document.createElement('button');
     btn.textContent = `Round ${round}`;
     btn.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
     btn.onclick = () => {
-      // Update button states
       document.querySelectorAll('#team-rounds button').forEach(b => {
         b.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
       });
       btn.className = 'px-3 py-1.5 bg-afl-blue text-white border border-afl-blue rounded text-sm font-medium';
-      
-      // Show games for this round
-      showTeamGames(year, round);
+      showTeamGames(team, year, round);
     };
     teamRounds.appendChild(btn);
   });
-  
-  // Clear matches list
+
   matchesList.innerHTML = '<p class="text-gray-600 text-center py-4">Select a round to view matches.</p>';
 }
 
-function showTeamGames(year, round) {
-  // Get games for this year and round
-  const games = currentTeamGames.filter(game => 
-    new Date(game.match_date).getFullYear() === year && 
-    game.match_round === round
-  );
-  
+// Uses cached matches for the year to show games for a round
+function showTeamGames(team, year, round) {
+  const games = (seasonMatches[year] || []).filter(g => g.match_round === round);
   matchesList.innerHTML = '';
-  
+
   if (games.length === 0) {
     matchesList.innerHTML = '<p class="text-gray-600 text-center py-4">No games found for this round.</p>';
     return;
   }
-  
+
   games.forEach(game => {
     const matchDiv = document.createElement('div');
     matchDiv.className = 'p-4 border border-gray-200 rounded-lg bg-gray-50';
-    
-    const isHome = game.match_home_team === teamName.textContent;
-    const opponent = isHome ? game.match_away_team : game.match_home_team;
-    const teamScore = isHome ? game.match_home_team_score : game.match_away_team_score;
-    const opponentScore = isHome ? game.match_away_team_score : game.match_home_team_score;
-    const result = game.match_winner === teamName.textContent ? 'W' : 'L';
-    const resultColor = result === 'W' ? 'text-green-600' : 'text-red-600';
-    const homeAway = isHome ? 'HOME' : 'AWAY';
-    
+
+    const isHome       = game.match_home_team === team;
+    const opponent     = isHome ? game.match_away_team : game.match_home_team;
+    const teamScore    = isHome ? game.match_home_team_score : game.match_away_team_score;
+    const opponentScore= isHome ? game.match_away_team_score : game.match_home_team_score;
+    const result       = game.match_winner === team ? 'W' : 'L';
+    const resultColor  = result === 'W' ? 'text-green-600' : 'text-red-600';
+    const homeAway     = isHome ? 'HOME' : 'AWAY';
+
     matchDiv.innerHTML = `
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-4">
@@ -350,7 +350,7 @@ function showTeamGames(year, round) {
           <div>
             <p class="font-medium text-gray-900">vs ${opponent}</p>
             <p class="text-sm text-gray-600">${game.match_date} - Round ${game.match_round}</p>
-            <p class="text-sm text-gray-600">${game.venue_name}</p>
+            <p class="text-sm text-gray-600">${game.venue_name ?? ''}</p>
           </div>
         </div>
         <div class="text-right">
@@ -359,7 +359,6 @@ function showTeamGames(year, round) {
         </div>
       </div>
     `;
-    
     matchesList.appendChild(matchDiv);
   });
 }

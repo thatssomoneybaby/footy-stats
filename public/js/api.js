@@ -46,6 +46,7 @@ export async function getYears() {
   }
 }
 
+/*
 export async function getMatches(year) {
   const res = await fetch(`${BASE}/matches-all?year=${year}`);
   return res.json();
@@ -60,6 +61,7 @@ export async function getRoundMatches(year, round) {
   const res = await fetch(`${BASE}/matches-all?year=${year}&round=${encodeURIComponent(round)}`);
   return res.json();
 }
+*/
 
 export async function getTeams() {
   try {
@@ -119,6 +121,25 @@ export async function getInsights() {
 export async function getUpcomingGames() {
   const res = await fetch('/api/upcoming-games');
   if (!res.ok) throw new Error('Could not load upcoming games');
+  return res.json();
+}
+
+/**
+ * Fetch all matches for a team in a single AFL season.
+ * Server route: /api/team-matches?team=ESS&year=2002
+ *
+ * @param {string} teamName - Team name as stored in the DB (e.g. "Essendon")
+ * @param {number|string} year - Four‑digit season year (e.g. 2002)
+ * @returns {Promise<Array>} Array of match objects for that season
+ */
+export async function getTeamMatchesByYear(teamName, year) {
+  const res = await fetch(
+    `/api/team-matches?team=${encodeURIComponent(teamName)}&year=${year}`
+  );
+  if (!res.ok) {
+    console.error('Season matches API error:', res.status, res.statusText);
+    return [];
+  }
   return res.json();
 }
 

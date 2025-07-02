@@ -23,36 +23,33 @@ export default async function handler(req, res) {
     );
 
     if (teamName) {
-      // Team details endpoint - this is now handled in stats-all.js with type=team-details
-      // But we'll keep this for backward compatibility
-      const { data: allMatches, error: matchesError } = await supabase
-        .rpc('get_team_match_summary', { team_name: teamName });
+      // --- NEW: pull one-row summary straight from the DB ---
+      const { data: summary, error: summaryErr } = await supabase
+        .rpc('get_team_summary', { team_name: teamName });
 
-      if (matchesError) throw matchesError;
-
-      // Remove duplicates
-      const uniqueMatches = allMatches.reduce((acc, match) => {
-        if (!acc.find(m => m.match_id === match.match_id)) {
-          acc.push(match);
-        }
-        return acc;
-      }, []);
+      if (summaryErr) throw summaryErr;
+      const {
+        total_matches,
+        wins,
+        losses,
+        highest_score,
+        biggest_win_margin,
+        grand_finals_won
+      } = summary[0];  // the function always returns one row
 
       const teamStats = {
-        total_matches: uniqueMatches.length,
-        wins: uniqueMatches.filter(m => m.match_winner === teamName).length,
-        losses: uniqueMatches.filter(m => m.match_winner && m.match_winner !== teamName).length
+        total_matches,
+        wins,
+        losses,
+        win_rate: total_matches
+          ? +(wins / total_matches * 100).toFixed(1)
+          : 0,
+        highest_score
       };
 
-      // Calculate highest and lowest scores
-      const teamScores = uniqueMatches.map(match => {
-        return match.match_home_team === teamName 
-          ? parseInt(match.match_home_team_score) || 0
-          : parseInt(match.match_away_team_score) || 0;
-      }).filter(score => score > 0);
-
-      teamStats.highest_score = Math.max(...teamScores, 0);
-      teamStats.lowest_score = Math.min(...teamScores, Infinity) === Infinity ? 0 : Math.min(...teamScores);
+      // Biggest win & premierships come pre‑calculated; wrap for the front‑end shape
+      const biggestWin = biggest_win_margin || null;
+      const grandFinals = { grand_finals_won };
 
       // Get top 10 disposal getters and top 10 goal kickers (two lean RPCs)
       const [
@@ -69,35 +66,14 @@ export default async function handler(req, res) {
       const topDisposals = disposalsData;   // already sorted by SQL
       const topGoals     = goalsData;       // already sorted by SQL
 
-      // Grand Finals count
-      const gfIdentifiers = ['GF', 'Grand Final'];
-      const grandFinals = uniqueMatches
-        .filter(m => 
-          gfIdentifiers.includes(m.match_round) && 
-          m.match_winner === teamName
-        );
-
-      // Find biggest win
-      const wins = uniqueMatches
-        .filter(m => m.match_winner === teamName && !isNaN(parseInt(m.match_margin)))
-        .map(m => ({
-          ...m,
-          margin: parseInt(m.match_margin)
-        }))
-        .sort((a, b) => b.margin - a.margin);
-
-      const biggestWin = wins.length > 0 ? wins[0] : null;
-
       res.json({
         team: teamName,
         stats: teamStats,
         topDisposals,
         topGoals,
-        grandFinals: { grand_finals_won: grandFinals.length },
+        grandFinals,
         biggestWin,
-        allGames: uniqueMatches.slice(0, 50).sort((a, b) => 
-          new Date(b.match_date) - new Date(a.match_date)
-        )
+        allGames: []
       });
       
     } else {
