@@ -1,33 +1,62 @@
-export async function getTeams() {
-  try {
-    const res = await fetch(`${BASE}/teams-all`);
-    if (!res.ok) {
-      console.error('Teams API error:', res.status, res.statusText);
-      const errorData = await res.text();
-      console.error('Error details:', errorData);
-      return [];
-    }
-    return res.json();
-  } catch (error) {
-    console.error('Failed to fetch teams:', error);
-    return [];
-  }
-}
+import { createClient } from '@supabase/supabase-js';
 
-export async function getTeamSummary(teamName) {
+/**
+ * GET /api/teams-all
+ *   – no query                 ➜ get_teams()          (full list)
+ *   – ?teamName=Essendon       ➜ team_summary('Essendon')
+ *
+ * Adds Cache‑Control: no-store while we debug so Vercel never serves a
+ * stale response.
+ */
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // -----------------------------------------------------------------------
+  //  Supabase client (anon key)
+  // -----------------------------------------------------------------------
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return res
+      .status(500)
+      .json({ error: 'Missing Supabase credentials in environment' });
+  }
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const { teamName } = req.query;
+
   try {
-    const res = await fetch(
-      `${BASE}/teams-all?teamName=${encodeURIComponent(teamName)}`
-    );
-    if (!res.ok) {
-      console.error('Team summary API error:', res.status, res.statusText);
-      const errorData = await res.text();
-      console.error('Error details:', errorData);
-      return null;
+    if (teamName) {
+      // -------------------------------------------------------------------
+      //  Single team summary
+      // -------------------------------------------------------------------
+      const { data, error } = await supabase.rpc('team_summary', {
+        p_team: teamName
+      });
+      if (error) throw error;
+
+      console.log('team_summary rows:', data?.length);
+
+      const payload = Array.isArray(data) ? data[0] : data;
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json(payload);
     }
-    return res.json();
-  } catch (error) {
-    console.error('Failed to fetch team summary:', error);
-    return null;
+
+    // ---------------------------------------------------------------------
+    //  Full teams list
+    // ---------------------------------------------------------------------
+    const { data, error } = await supabase.rpc('get_teams');
+    if (error) throw error;
+
+    console.log('get_teams rows:', data?.length);
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json(data);
+  } catch (err) {
+    console.error('Supabase RPC error:', err);
+    return res
+      .status(500)
+      .json({ error: 'Failed to fetch team data', details: err.message });
   }
 }
