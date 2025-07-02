@@ -26,13 +26,7 @@ export default async function handler(req, res) {
       // Team details endpoint - this is now handled in stats-all.js with type=team-details
       // But we'll keep this for backward compatibility
       const { data: allMatches, error: matchesError } = await supabase
-        .from('afl_data')
-        .select(`
-          match_id, match_home_team, match_away_team, match_winner,
-          match_home_team_score, match_away_team_score, match_margin,
-          match_date, match_round, venue_name
-        `)
-        .or(`match_home_team.eq.${teamName},match_away_team.eq.${teamName}`);
+        .rpc('get_team_match_summary', { team_name: teamName });
 
       if (matchesError) throw matchesError;
 
@@ -62,14 +56,7 @@ export default async function handler(req, res) {
 
       // Get player stats for this team
       const { data: playerData, error: playerError } = await supabase
-        .from('afl_data')
-        .select(`
-          player_first_name, player_last_name, player_id,
-          disposals, goals
-        `)
-        .eq('player_team', teamName)
-        .not('disposals', 'is', null)
-        .neq('disposals', '');
+        .rpc('get_team_top_players', { team_name: teamName });
 
       if (playerError) throw playerError;
 
@@ -86,8 +73,8 @@ export default async function handler(req, res) {
             games_played: 0
           };
         }
-        playerStats[playerId].total_disposals += parseInt(row.disposals) || 0;
-        playerStats[playerId].total_goals += parseInt(row.goals) || 0;
+        playerStats[playerId].total_disposals += isNaN(parseInt(row.disposals)) ? 0 : parseInt(row.disposals);
+        playerStats[playerId].total_goals += isNaN(parseInt(row.goals)) ? 0 : parseInt(row.goals);
         playerStats[playerId].games_played += 1;
       });
 
@@ -109,7 +96,10 @@ export default async function handler(req, res) {
       // Find biggest win
       const wins = uniqueMatches
         .filter(m => m.match_winner === teamName && m.match_margin)
-        .map(m => ({ ...m, margin: parseInt(m.match_margin) || 0 }))
+        .map(m => ({
+          ...m,
+          margin: !isNaN(parseInt(m.match_margin)) ? parseInt(m.match_margin) : 0
+        }))
         .sort((a, b) => b.margin - a.margin);
 
       const biggestWin = wins.length > 0 ? wins[0] : null;
