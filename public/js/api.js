@@ -19,7 +19,8 @@ export async function getGrandFinalWins(teamName) {
 }
 
 export async function getTeamsWithRanges() {
-  const res = await fetch(`/api/rpc/get_teams_with_ranges`);
+  // Use the existing backend route which internally calls the RPC
+  const res = await fetch('/api/teams-all');
   return res.json();
 }
 // API functions mapped to consolidated endpoints
