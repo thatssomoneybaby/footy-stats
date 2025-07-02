@@ -22,9 +22,6 @@ export async function getYears() {
       return [];
     }
     const data = await res.json();
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Years data received:', data);
-    }
     return data;
   } catch (error) {
     console.error('Failed to fetch years:', error);
@@ -63,9 +60,6 @@ export async function getTeams() {
       return [];
     }
     const data = await res.json();
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Teams data received:', data);
-    }
     return data;
   } catch (error) {
     console.error('Failed to fetch teams:', error);
@@ -176,9 +170,6 @@ export async function getMatchById(matchId) {
       return null;
     }
     const data = await res.json();
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Match data received:', data);
-    }
     return data;
   } catch (error) {
     console.error('Failed to fetch match:', error);
