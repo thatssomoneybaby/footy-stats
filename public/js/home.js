@@ -191,6 +191,10 @@ window.showGameInsights = async function(homeTeam, awayTeam) {
     
     // Load head-to-head specific data
     const h2hData = await getHeadToHead(homeTeam, awayTeam);
+    const total = h2hData.summary.totalGames || 1;
+    const homeWinPct = Math.round((h2hData.summary.homeWins / total) * 100);
+    const awayWinPct = Math.round((h2hData.summary.awayWins / total) * 100);
+    const drawCount = h2hData.summary.draws || 0;
     
     const content = document.getElementById('game-insights-content');
     content.innerHTML = `
@@ -199,17 +203,25 @@ window.showGameInsights = async function(homeTeam, awayTeam) {
         <h3 class="text-xl font-bold text-gray-900 mb-4 text-center">Head-to-Head Record</h3>
         <div class="grid grid-cols-3 gap-4 text-center">
           <div style="background-color: ${homeColors.light}; border-left: 4px solid ${homeColors.primary};" class="p-4 rounded">
-            <div class="text-2xl font-bold" style="color: ${homeColors.primary};">${h2hData.summary[homeTeam] || 0}</div>
-            <div class="text-sm text-gray-600">${homeTeam} wins</div>
+            <div class="text-2xl font-bold" style="color: ${homeColors.primary};">${h2hData.summary.homeWins || 0}</div>
+            <div class="text-sm text-gray-600">${homeTeam} wins (${homeWinPct}%)</div>
           </div>
           <div class="p-4 rounded bg-gray-100">
             <div class="text-xl font-bold text-gray-700">${h2hData.summary.totalGames || 0}</div>
             <div class="text-sm text-gray-600">Total meetings</div>
           </div>
           <div style="background-color: ${awayColors.light}; border-right: 4px solid ${awayColors.primary};" class="p-4 rounded">
-            <div class="text-2xl font-bold" style="color: ${awayColors.primary};">${h2hData.summary[awayTeam] || 0}</div>
-            <div class="text-sm text-gray-600">${awayTeam} wins</div>
+            <div class="text-2xl font-bold" style="color: ${awayColors.primary};">${h2hData.summary.awayWins || 0}</div>
+            <div class="text-sm text-gray-600">${awayTeam} wins (${awayWinPct}%)</div>
           </div>
+        </div>
+        <div class="grid grid-cols-3 gap-4 text-center mt-4">
+          <div></div>
+          <div class="p-4 rounded bg-gray-100">
+            <div class="text-xl font-bold text-gray-700">${drawCount}</div>
+            <div class="text-sm text-gray-600">Draws</div>
+          </div>
+          <div></div>
         </div>
       </div>
 

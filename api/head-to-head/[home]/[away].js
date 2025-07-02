@@ -38,9 +38,10 @@ export default async function handler(req, res) {
   const summary = {
     totalGames: rpcSummary.total_meetings,
     homeWins: rpcSummary.home_wins,
-    homeLosses: rpcSummary.total_meetings - rpcSummary.home_wins,
     awayWins: rpcSummary.away_wins,
-    awayLosses: rpcSummary.total_meetings - rpcSummary.away_wins
+    draws: rpcSummary.draws,
+    homeLosses: rpcSummary.total_meetings - rpcSummary.home_wins - rpcSummary.draws,
+    awayLosses: rpcSummary.total_meetings - rpcSummary.away_wins - rpcSummary.draws
   };
 
   const { data: games, error } = await supabase
