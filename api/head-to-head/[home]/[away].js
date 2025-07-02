@@ -2,6 +2,14 @@ import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req, res) {
   const { home, away } = req.query;
+
+  const clean = str =>
+    str.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  const cleanHome = clean(home);
+  const cleanAway = clean(away);
+
+  console.log('Cleaned values sent to RPC:', { cleanHome, cleanAway });
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_ANON_KEY
@@ -9,7 +17,7 @@ export default async function handler(req, res) {
 
   // Get total unique meetings via Postgres function
   const { data: totalCount, error: countError } = await supabase
-    .rpc('count_head_to_head', { home_team: home, away_team: away });
+    .rpc('count_head_to_head', { home_team: cleanHome, away_team: cleanAway });
 
   if (countError) {
     console.error('RPC count error:', countError);
@@ -18,7 +26,7 @@ export default async function handler(req, res) {
 
   // Instead of JS counting, fetch home_wins, away_wins and total_meetings in one go:
   const { data: rpcSummaryArr, error: rpcError } = await supabase
-    .rpc('head_to_head_summary', { home_team: home, away_team: away });
+    .rpc('head_to_head_summary', { home_team: cleanHome, away_team: cleanAway });
   const rpcSummary = (rpcSummaryArr && rpcSummaryArr[0]) || { home_wins: 0, away_wins: 0, total_meetings: 0 };
 
   if (rpcError) {
