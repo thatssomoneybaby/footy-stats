@@ -29,14 +29,16 @@ export default async function handler(req, res) {
         p_team: teamName
       });
       if (error) throw error;
-
-      // `team_summary` returns one JSON row; unwrap it for convenience
+      console.log('team_summary rows:', data?.length);
       const payload = Array.isArray(data) ? data[0] : data;
+      res.setHeader('Cache-Control', 'no-store');
       return res.json(payload);
     } else {
       // ---- Full teams list -----------------------------------------------
       const { data, error } = await supabase.rpc('get_teams');
       if (error) throw error;
+      console.log('get_teams rows:', data?.length);
+      res.setHeader('Cache-Control', 'no-store');
       return res.json(data);
     }
   } catch (err) {
