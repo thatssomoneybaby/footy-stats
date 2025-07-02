@@ -78,6 +78,12 @@ export default async function handler(req, res) {
         playerStats[playerId].games_played += 1;
       });
 
+      // Add averages
+      Object.values(playerStats).forEach(player => {
+        player.avg_disposals = +(player.total_disposals / player.games_played).toFixed(1);
+        player.avg_goals = +(player.total_goals / player.games_played).toFixed(2);
+      });
+
       const topDisposals = Object.values(playerStats)
         .sort((a, b) => b.total_disposals - a.total_disposals)
         .slice(0, 10);
@@ -87,18 +93,19 @@ export default async function handler(req, res) {
         .slice(0, 10);
 
       // Grand Finals count
+      const gfIdentifiers = ['GF', 'Grand Final'];
       const grandFinals = uniqueMatches
         .filter(m => 
-          (m.match_round === 'GF' || m.match_round === 'Grand Final') && 
+          gfIdentifiers.includes(m.match_round) && 
           m.match_winner === teamName
         );
 
       // Find biggest win
       const wins = uniqueMatches
-        .filter(m => m.match_winner === teamName && m.match_margin)
+        .filter(m => m.match_winner === teamName && !isNaN(parseInt(m.match_margin)))
         .map(m => ({
           ...m,
-          margin: !isNaN(parseInt(m.match_margin)) ? parseInt(m.match_margin) : 0
+          margin: parseInt(m.match_margin)
         }))
         .sort((a, b) => b.margin - a.margin);
 

@@ -1,3 +1,27 @@
+export async function getTeamMatchYears(teamName) {
+  const res = await fetch(`/api/rpc/get_match_years_for_team?team_name=${encodeURIComponent(teamName)}`);
+  return res.json();
+}
+
+export async function getTeamStats(teamName) {
+  const res = await fetch(`/api/rpc/get_team_stats?team_name=${encodeURIComponent(teamName)}`);
+  return res.json();
+}
+
+export async function getTeamBestWin(teamName) {
+  const res = await fetch(`/api/rpc/get_team_best_win?team_name=${encodeURIComponent(teamName)}`);
+  return res.json();
+}
+
+export async function getGrandFinalWins(teamName) {
+  const res = await fetch(`/api/rpc/get_grand_final_wins?team_name=${encodeURIComponent(teamName)}`);
+  return res.json();
+}
+
+export async function getTeamsWithRanges() {
+  const res = await fetch(`/api/rpc/get_teams_with_ranges`);
+  return res.json();
+}
 // API functions mapped to consolidated endpoints
 const BASE = '/api';
 
@@ -11,7 +35,9 @@ export async function getYears() {
       return [];
     }
     const data = await res.json();
-    console.log('Years data received:', data);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Years data received:', data);
+    }
     return data;
   } catch (error) {
     console.error('Failed to fetch years:', error);
@@ -44,7 +70,9 @@ export async function getTeams() {
       return [];
     }
     const data = await res.json();
-    console.log('Teams data received:', data);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Teams data received:', data);
+    }
     return data;
   } catch (error) {
     console.error('Failed to fetch teams:', error);
@@ -93,8 +121,8 @@ export async function getUpcomingGames() {
   return res.json();
 }
 
+// TODO: Implement this endpoint when data is available
 export async function getTopPerformers(teamName) {
-  // Placeholder - not implemented in consolidated version  
   return {};
 }
 
@@ -115,7 +143,9 @@ export async function getMatchById(matchId) {
       return null;
     }
     const data = await res.json();
-    console.log('Match data received:', data);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Match data received:', data);
+    }
     return data;
   } catch (error) {
     console.error('Failed to fetch match:', error);

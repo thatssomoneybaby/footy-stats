@@ -1,4 +1,17 @@
-import { getTeams, getTeamDetails } from './api.js';
+import {
+  getTeams,
+  getTeamDetails,
+  getTeamMatchYears,
+  getTeamStats,
+  getTeamBestWin,
+  getGrandFinalWins
+} from './api.js';
+
+const defaultColors = { primary: '--afl-blue', secondary: '--afl-blue-dark' };
+
+function getMedal(index) {
+  return index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+}
 
 const teamsGrid = document.getElementById('teams-grid');
 const teamDetails = document.getElementById('team-details');
@@ -40,7 +53,7 @@ const teamColorMap = {
 
 // Function to get team colors
 function getTeamColors(teamName) {
-  return teamColorMap[teamName] || { primary: '--afl-blue', secondary: '--afl-blue-dark' };
+  return teamColorMap[teamName] || defaultColors;
 }
 
 // Load teams on page load
@@ -160,7 +173,7 @@ function renderTeamDetails(details) {
     
     let disposalsList = '';
     details.topDisposals.forEach((player, index) => {
-      const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+      const medal = getMedal(index);
       disposalsList += `
         <div class="flex items-center justify-between py-2 ${index < details.topDisposals.length - 1 ? 'border-b border-gray-100' : ''}">
           <div class="flex items-center space-x-3">
@@ -193,7 +206,7 @@ function renderTeamDetails(details) {
     
     let goalsList = '';
     details.topGoals.forEach((player, index) => {
-      const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+      const medal = getMedal(index);
       goalsList += `
         <div class="flex items-center justify-between py-2 ${index < details.topGoals.length - 1 ? 'border-b border-gray-100' : ''}">
           <div class="flex items-center space-x-3">
@@ -268,8 +281,13 @@ function showTeamRounds(year) {
   );
   
   // Get unique rounds
-  const rounds = [...new Set(yearGames.map(game => game.match_round))]
-    .sort((a, b) => parseInt(a) - parseInt(b));
+  const rounds = [...new Set(yearGames.map(game => game.match_round))].sort((a, b) => {
+    const numA = parseInt(a), numB = parseInt(b);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    if (!isNaN(numA)) return -1;
+    if (!isNaN(numB)) return 1;
+    return a.localeCompare(b);
+  });
   
   // Clear and show rounds
   teamRounds.innerHTML = '';
@@ -354,3 +372,31 @@ backButton.addEventListener('click', () => {
 
 // Initialize page
 loadTeams();
+
+// Render a team card with extra info (years, stats, best win, grand final wins)
+async function renderTeamCard(teamName) {
+  const [
+    years,
+    stats,
+    bestWin,
+    grandFinals
+  ] = await Promise.all([
+    getTeamMatchYears(teamName),
+    getTeamStats(teamName),
+    getTeamBestWin(teamName),
+    getGrandFinalWins(teamName)
+  ]);
+
+  const container = document.createElement('div');
+  container.classList.add('team-card');
+
+  container.innerHTML = `
+    <h2>${teamName}</h2>
+    <p><strong>Years Active:</strong> ${years.map(y => y.match_year).join(', ')}</p>
+    <p><strong>Grand Final Wins:</strong> ${grandFinals[0]?.grand_finals_won ?? 0}</p>
+    <p><strong>Top Player:</strong> ${stats[0]?.player_first_name ?? '-'} ${stats[0]?.player_last_name ?? '-'} (${stats[0]?.total_disposals ?? 0} disposals)</p>
+    <p><strong>Best Win:</strong> vs ${bestWin[0]?.opponent ?? '-'} by ${bestWin[0]?.match_margin ?? '-'} on ${bestWin[0]?.match_date?.split('T')[0] ?? '-'}</p>
+  `;
+
+  document.getElementById('teamsContainer').appendChild(container);
+}
