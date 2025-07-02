@@ -60,7 +60,6 @@ export default async function handler(req, res) {
 
       if (playerError) throw playerError;
 
-      // Aggregate player stats
       const playerStats = {};
       playerData.forEach(row => {
         const playerId = row.player_id;
@@ -70,16 +69,21 @@ export default async function handler(req, res) {
             player_last_name: row.player_last_name,
             total_disposals: 0,
             total_goals: 0,
-            games_played: 0
+            game_ids: new Set()
           };
         }
+
         playerStats[playerId].total_disposals += isNaN(parseInt(row.disposals)) ? 0 : parseInt(row.disposals);
         playerStats[playerId].total_goals += isNaN(parseInt(row.goals)) ? 0 : parseInt(row.goals);
-        playerStats[playerId].games_played += 1;
+
+        if (row.match_id) {
+          playerStats[playerId].game_ids.add(row.match_id);
+        }
       });
 
-      // Add averages
+      // Now calculate games played and averages
       Object.values(playerStats).forEach(player => {
+        player.games_played = player.game_ids.size;
         player.avg_disposals = +(player.total_disposals / player.games_played).toFixed(1);
         player.avg_goals = +(player.total_goals / player.games_played).toFixed(2);
       });
