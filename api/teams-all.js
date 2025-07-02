@@ -54,47 +54,20 @@ export default async function handler(req, res) {
       teamStats.highest_score = Math.max(...teamScores, 0);
       teamStats.lowest_score = Math.min(...teamScores, Infinity) === Infinity ? 0 : Math.min(...teamScores);
 
-      // Get player stats for this team
-      const { data: playerData, error: playerError } = await supabase
-        .rpc('get_team_top_players', { team_name: teamName });
+      // Get top 10 disposal getters and top 10 goal kickers (two lean RPCs)
+      const [
+        { data: disposalsData, error: dispErr },
+        { data: goalsData,     error: goalsErr }
+      ] = await Promise.all([
+        supabase.rpc('get_team_top_disposals', { team_name: teamName, p_limit: 10 }),
+        supabase.rpc('get_team_top_goals',     { team_name: teamName, p_limit: 10 })
+      ]);
 
-      if (playerError) throw playerError;
+      if (dispErr) throw dispErr;
+      if (goalsErr) throw goalsErr;
 
-      const playerStats = {};
-      playerData.forEach(row => {
-        const playerId = row.player_id;
-        if (!playerStats[playerId]) {
-          playerStats[playerId] = {
-            player_first_name: row.player_first_name,
-            player_last_name: row.player_last_name,
-            total_disposals: 0,
-            total_goals: 0,
-            game_ids: new Set()
-          };
-        }
-
-        playerStats[playerId].total_disposals += isNaN(parseInt(row.disposals)) ? 0 : parseInt(row.disposals);
-        playerStats[playerId].total_goals += isNaN(parseInt(row.goals)) ? 0 : parseInt(row.goals);
-
-        if (row.match_id) {
-          playerStats[playerId].game_ids.add(row.match_id);
-        }
-      });
-
-      // Now calculate games played and averages
-      Object.values(playerStats).forEach(player => {
-        player.games_played = player.game_ids.size;
-        player.avg_disposals = +(player.total_disposals / player.games_played).toFixed(1);
-        player.avg_goals = +(player.total_goals / player.games_played).toFixed(2);
-      });
-
-      const topDisposals = Object.values(playerStats)
-        .sort((a, b) => b.total_disposals - a.total_disposals)
-        .slice(0, 10);
-
-      const topGoals = Object.values(playerStats)
-        .sort((a, b) => b.total_goals - a.total_goals)
-        .slice(0, 10);
+      const topDisposals = disposalsData;   // already sorted by SQL
+      const topGoals     = goalsData;       // already sorted by SQL
 
       // Grand Finals count
       const gfIdentifiers = ['GF', 'Grand Final'];
