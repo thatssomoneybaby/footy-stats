@@ -1,107 +1,129 @@
 import {
-  getTeamsWithRanges,
-  getTeamDetails,
+  getTeams,
+  getTeamSummary,
   getTeamMatchYears,
-  getTeamStats,
-  getTeamBestWin,
-  getGrandFinalWins,
   getTeamMatchesByYear
 } from './api.js';
 
+/* ------------------------------------------------------------------ */
+/*  1.  Colour helpers                                                */
+/* ------------------------------------------------------------------ */
 const defaultColors = { primary: '--afl-blue', secondary: '--afl-blue-dark' };
 
-function getMedal(index) {
-  return index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-}
-
-const teamsGrid = document.getElementById('teams-grid');
-const teamDetails = document.getElementById('team-details');
-const teamName = document.getElementById('team-name');
-const teamSummary = document.getElementById('team-summary');
-const topPerformers = document.getElementById('top-performers');
-const matchesList = document.getElementById('matches-list');
-const backButton = document.getElementById('back-to-teams');
-
-let currentTeams = [];
-// Cache: { [year]: matches[] }
-let seasonMatches = {};
-
-// Team color mapping to CSS variables
 const teamColorMap = {
-  'Adelaide': { primary: '--adelaide-light-blue', secondary: '--adelaide-red' },
-  'Brisbane': { primary: '--brisbane-dark-pink', secondary: '--brisbane-deep-yellow' },
-  'Brisbane Bears': { primary: '--brisbane-dark-pink', secondary: '--brisbane-deep-yellow' },
-  'Brisbane Lions': { primary: '--brisbane-dark-pink', secondary: '--brisbane-deep-yellow' },
-  'Carlton': { primary: '--carlton-dark-navy', secondary: '--carlton-white' },
-  'Essendon': { primary: '--essendon-red', secondary: '--essendon-black' },
-  'Fitzroy': { primary: '--fitzroy-red', secondary: '--fitzroy-blue' },
-  'Fremantle': { primary: '--fremantle-indigo', secondary: '--fremantle-gray' },
-  'Geelong': { primary: '--geelong-dark-blue', secondary: '--geelong-white' },
-  'Gold Coast': { primary: '--goldcoast-red', secondary: '--goldcoast-yellow' },
-  'GWS': { primary: '--gws-orange', secondary: '--gws-white' },
-  'Greater Western Sydney': { primary: '--gws-orange', secondary: '--gws-white' },
-  'Hawthorn': { primary: '--hawthorn-brown', secondary: '--hawthorn-yellow' },
-  'Melbourne': { primary: '--melbourne-dark-blue', secondary: '--melbourne-red' },
-  'North Melbourne': { primary: '--north-blue', secondary: '--north-white' },
-  'Port Adelaide': { primary: '--portadelaide-black', secondary: '--portadelaide-blue' },
-  'Richmond': { primary: '--richmond-yellow', secondary: '--richmond-black' },
-  'St Kilda': { primary: '--stkilda-red', secondary: '--stkilda-white' },
-  'Sydney': { primary: '--sydney-red', secondary: '--sydney-white' },
-  'West Coast': { primary: '--westcoast-blue', secondary: '--westcoast-yellow' },
-  'Western Bulldogs': { primary: '--bulldogs-blue', secondary: '--bulldogs-white' },
-  'Footscray': { primary: '--bulldogs-blue', secondary: '--bulldogs-white' },
-  'University': { primary: '--university-blue', secondary: '--university-black' }
+  'Adelaide':              { primary: '--adelaide-light-blue', secondary: '--adelaide-red' },
+  'Brisbane':              { primary: '--brisbane-dark-pink',  secondary: '--brisbane-deep-yellow' },
+  'Brisbane Bears':        { primary: '--brisbane-dark-pink',  secondary: '--brisbane-deep-yellow' },
+  'Brisbane Lions':        { primary: '--brisbane-dark-pink',  secondary: '--brisbane-deep-yellow' },
+  'Carlton':               { primary: '--carlton-dark-navy',   secondary: '--carlton-white' },
+  'Essendon':              { primary: '--essendon-red',        secondary: '--essendon-black' },
+  'Fitzroy':               { primary: '--fitzroy-red',         secondary: '--fitzroy-blue' },
+  'Fremantle':             { primary: '--fremantle-indigo',    secondary: '--fremantle-gray' },
+  'Geelong':               { primary: '--geelong-dark-blue',   secondary: '--geelong-white' },
+  'Gold Coast':            { primary: '--goldcoast-red',       secondary: '--goldcoast-yellow' },
+  'GWS':                   { primary: '--gws-orange',          secondary: '--gws-white' },
+  'Greater Western Sydney':{ primary: '--gws-orange',          secondary: '--gws-white' },
+  'Hawthorn':              { primary: '--hawthorn-brown',      secondary: '--hawthorn-yellow' },
+  'Melbourne':             { primary: '--melbourne-dark-blue', secondary: '--melbourne-red' },
+  'North Melbourne':       { primary: '--north-blue',          secondary: '--north-white' },
+  'Port Adelaide':         { primary: '--portadelaide-black',  secondary: '--portadelaide-blue' },
+  'Richmond':              { primary: '--richmond-yellow',     secondary: '--richmond-black' },
+  'St Kilda':              { primary: '--stkilda-red',         secondary: '--stkilda-white' },
+  'Sydney':                { primary: '--sydney-red',          secondary: '--sydney-white' },
+  'West Coast':            { primary: '--westcoast-blue',      secondary: '--westcoast-yellow' },
+  'Western Bulldogs':      { primary: '--bulldogs-blue',       secondary: '--bulldogs-white' },
+  'Footscray':             { primary: '--bulldogs-blue',       secondary: '--bulldogs-white' },
+  'University':            { primary: '--university-blue',     secondary: '--university-black' }
 };
 
-// Function to get team colors
-function getTeamColors(teamName) {
-  return teamColorMap[teamName] || defaultColors;
+function getTeamColors(name) {
+  return teamColorMap[name] || defaultColors;
 }
 
-// Load teams on page load
+function getMedal(i) {
+  return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  2.  DOM look‑ups                                                  */
+/* ------------------------------------------------------------------ */
+const teamsGrid      = document.getElementById('teams-grid');
+const teamDetailsBox = document.getElementById('team-details');
+const teamNameH2     = document.getElementById('team-name');
+const teamSummaryBox = document.getElementById('team-summary');
+const topPerfBox     = document.getElementById('top-performers');
+const matchesList    = document.getElementById('matches-list');
+const backBtn        = document.getElementById('back-to-teams');
+
+/* ------------------------------------------------------------------ */
+let currentTeams = [];
+const seasonMatches = {};   // { [season]: MatchRow[] }
+/* ------------------------------------------------------------------ */
+/*  3.  Page init                                                     */
+/* ------------------------------------------------------------------ */
+loadTeams();
+
+backBtn.addEventListener('click', () => {
+  teamDetailsBox.classList.add('hidden');
+  document.querySelector('.max-w-7xl').children[0].style.display = 'block';
+});
+
+/* ------------------------------------------------------------------ */
+/*  4.  Teams list                                                    */
+/* ------------------------------------------------------------------ */
 async function loadTeams() {
   try {
-    currentTeams = await getTeamsWithRanges();
+    currentTeams = await getTeams();       // RPC: get_teams
     renderTeams(currentTeams);
-  } catch (error) {
-    console.error('Error loading teams:', error);
-    teamsGrid.innerHTML = '<p class="text-red-600">Error loading teams. Please try again.</p>';
+  } catch (err) {
+    console.error(err);
+    teamsGrid.innerHTML =
+      '<p class="text-red-600">Error loading teams. Please try again.</p>';
   }
 }
 
 function renderTeams(teams) {
   teamsGrid.innerHTML = '';
-  
-  if (teams.length === 0) {
-    teamsGrid.innerHTML = '<p class="text-gray-600 col-span-full text-center">No teams found.</p>';
+
+  if (!teams.length) {
+    teamsGrid.innerHTML =
+      '<p class="text-gray-600 col-span-full text-center">No teams found.</p>';
     return;
   }
 
-  teams.forEach(team => {
-    const teamCard = document.createElement('div');
-    const colors = getTeamColors(team.team_name);
-    
-    // Apply team colors as CSS custom properties
-    teamCard.style.setProperty('--team-primary', `var(${colors.primary})`);
-    teamCard.style.setProperty('--team-secondary', `var(${colors.secondary})`);
-    
-    teamCard.className = 'p-4 border-2 rounded-lg hover:shadow-lg cursor-pointer transition-all duration-200 transform hover:scale-105';
-    teamCard.style.borderColor = `var(${colors.primary})`;
-    teamCard.style.background = `linear-gradient(135deg, var(${colors.primary})15, var(${colors.secondary})10)`;
-    
-    teamCard.innerHTML = `
+  teams.forEach(t => {
+    const card   = document.createElement('div');
+    const colors = getTeamColors(t.team_name);
+
+    card.style.setProperty('--team-primary',   `var(${colors.primary})`);
+    card.style.setProperty('--team-secondary', `var(${colors.secondary})`);
+
+    card.className =
+      'p-4 border-2 rounded-lg hover:shadow-lg cursor-pointer ' +
+      'transition-all duration-200 transform hover:scale-105';
+    card.style.borderColor = `var(${colors.primary})`;
+    card.style.background  =
+      `linear-gradient(135deg, var(${colors.primary})15, var(${colors.secondary})10)`;
+
+    card.innerHTML = `
       <div class="flex items-center justify-between mb-3">
-        <h3 class="font-bold text-lg" style="color: var(${colors.primary})">${team.team_name}</h3>
+        <h3 class="font-bold text-lg" style="color: var(${colors.primary})">
+          ${t.team_name}
+        </h3>
         <div class="w-4 h-4 rounded-full" style="background: var(${colors.primary})"></div>
       </div>
       <div class="text-sm space-y-2">
         <p class="flex justify-between">
-          <span class="font-medium text-gray-700">Years:</span> 
-          <span class="font-semibold" style="color: var(${colors.primary})">${team.first_year} - ${team.last_year}</span>
+          <span class="font-medium text-gray-700">Years:</span>
+          <span class="font-semibold" style="color: var(${colors.primary})">
+            ${t.first_year} - ${t.last_year}
+          </span>
         </p>
         <p class="flex justify-between">
-          <span class="font-medium text-gray-700">Total Matches:</span> 
-          <span class="font-semibold" style="color: var(${colors.primary})">${team.total_matches}</span>
+          <span class="font-medium text-gray-700">Total Matches:</span>
+          <span class="font-semibold" style="color: var(${colors.primary})">
+            ${t.total_matches}
+          </span>
         </p>
       </div>
       <div class="mt-3 pt-3 border-t" style="border-color: var(${colors.primary})30">
@@ -110,237 +132,228 @@ function renderTeams(teams) {
         </div>
       </div>
     `;
-    
-    teamCard.addEventListener('click', () => loadTeamDetails(team.team_name));
-    teamsGrid.appendChild(teamCard);
+
+    card.addEventListener('click', () => loadTeamDetails(t.team_name));
+    teamsGrid.appendChild(card);
   });
 }
 
-async function loadTeamDetails(teamName) {
+/* ------------------------------------------------------------------ */
+/*  5.  Team dashboard                                                */
+/* ------------------------------------------------------------------ */
+async function loadTeamDetails(team) {
   try {
-    const details = await getTeamDetails(teamName);
-    renderTeamDetails(details);
-    
-    // Hide teams grid and show details
+    const summary = await getTeamSummary(team);   // RPC: team_summary
+    renderTeamDetails(team, summary);
+
+    // Switch view
     document.querySelector('.max-w-7xl').children[0].style.display = 'none';
-    teamDetails.classList.remove('hidden');
-  } catch (error) {
-    console.error('Error loading team details:', error);
+    teamDetailsBox.classList.remove('hidden');
+  } catch (err) {
+    console.error(err);
     alert('Error loading team details. Please try again.');
   }
 }
 
-function renderTeamDetails(details) {
-  // Set team name
-  teamName.textContent = details.team;
-  
-  // Render summary stats
-  const stats = details.stats;
-  const winPercentage = stats.total_matches > 0 ? ((stats.wins / stats.total_matches) * 100).toFixed(1) : 0;
-  
-  teamSummary.innerHTML = `
+function renderTeamDetails(team, d) {
+  /* ----- top header ----- */
+  teamNameH2.textContent = team;
+
+  /* ----- summary tiles ----- */
+  const totalMatches = d.total_matches ?? 0;
+  const winPct       = d.win_rate_pct  ?? 0;
+  const highScore    = d.highest_score ?? 0;
+  const bigWin       = d.biggest_win   ?? 0;
+  const premierships = d.grand_finals  ?? 0;
+
+  teamSummaryBox.innerHTML = `
     <div class="bg-blue-50 p-4 rounded-lg">
       <h4 class="font-semibold text-afl-blue mb-1">Total Matches</h4>
-      <p class="text-2xl font-bold text-gray-900">${stats.total_matches || 0}</p>
+      <p class="text-2xl font-bold text-gray-900">${totalMatches}</p>
     </div>
     <div class="bg-green-50 p-4 rounded-lg">
       <h4 class="font-semibold text-green-700 mb-1">Win Rate</h4>
-      <p class="text-2xl font-bold text-gray-900">${winPercentage}%</p>
-      <p class="text-sm text-gray-600">${stats.wins || 0}W - ${stats.losses || 0}L</p>
+      <p class="text-2xl font-bold text-gray-900">${winPct.toFixed(1)}%</p>
     </div>
     <div class="bg-yellow-50 p-4 rounded-lg">
       <h4 class="font-semibold text-yellow-700 mb-1">Highest Score</h4>
-      <p class="text-2xl font-bold text-gray-900">${stats.highest_score || 0}</p>
+      <p class="text-2xl font-bold text-gray-900">${highScore}</p>
     </div>
     <div class="bg-red-50 p-4 rounded-lg">
       <h4 class="font-semibold text-red-700 mb-1">Biggest Win</h4>
-      <p class="text-2xl font-bold text-gray-900">${stats.biggest_win_margin || 0} pts</p>
+      <p class="text-2xl font-bold text-gray-900">${bigWin} pts</p>
     </div>
     <div class="bg-purple-50 p-4 rounded-lg">
-      <h4 class="font-semibold text-purple-700 mb-1">Grand Finals</h4>
-      <p class="text-2xl font-bold text-gray-900">${details.grandFinals?.grand_finals_won || 0}</p>
-      <p class="text-sm text-gray-600">Premierships</p>
+      <h4 class="font-semibold text-purple-700 mb-1">Premierships</h4>
+      <p class="text-2xl font-bold text-gray-900">${premierships}</p>
     </div>
   `;
-  
-  // Render top performers
-  topPerformers.innerHTML = '';
-  
-  if (details.topDisposals && details.topDisposals.length > 0) {
-    const disposalsCard = document.createElement('div');
-    disposalsCard.className = 'bg-white border border-gray-200 rounded-lg p-6';
-    
-    let disposalsList = '';
-    details.topDisposals.forEach((player, index) => {
-      const medal = getMedal(index);
-      disposalsList += `
-        <div class="flex items-center justify-between py-2 ${index < details.topDisposals.length - 1 ? 'border-b border-gray-100' : ''}">
-          <div class="flex items-center space-x-3">
-            <span class="text-sm font-medium w-8">${medal}</span>
-            <div>
-              <p class="font-medium text-gray-900">${player.player_first_name} ${player.player_last_name}</p>
-              <p class="text-xs text-gray-500">${player.games_played} games</p>
-            </div>
-          </div>
-          <div class="text-right">
-            <p class="font-bold text-gray-900">${player.total_disposals || 0}</p>
-            <p class="text-xs text-gray-500">${parseFloat(player.avg_disposals || 0).toFixed(1)}/game</p>
-          </div>
-        </div>
-      `;
-    });
-    
-    disposalsCard.innerHTML = `
-      <h4 class="text-lg font-semibold text-gray-900 mb-4">🏆 Top 10 Disposal Getters</h4>
-      <div class="space-y-1">
-        ${disposalsList}
-      </div>
-    `;
-    topPerformers.appendChild(disposalsCard);
-  }
-  
-  if (details.topGoals && details.topGoals.length > 0) {
-    const goalsCard = document.createElement('div');
-    goalsCard.className = 'bg-white border border-gray-200 rounded-lg p-6';
-    
-    let goalsList = '';
-    details.topGoals.forEach((player, index) => {
-      const medal = getMedal(index);
-      goalsList += `
-        <div class="flex items-center justify-between py-2 ${index < details.topGoals.length - 1 ? 'border-b border-gray-100' : ''}">
-          <div class="flex items-center space-x-3">
-            <span class="text-sm font-medium w-8">${medal}</span>
-            <div>
-              <p class="font-medium text-gray-900">${player.player_first_name} ${player.player_last_name}</p>
-              <p class="text-xs text-gray-500">${player.games_played} games</p>
-            </div>
-          </div>
-          <div class="text-right">
-            <p class="font-bold text-gray-900">${player.total_goals || 0}</p>
-            <p class="text-xs text-gray-500">${parseFloat(player.avg_goals || 0).toFixed(1)}/game</p>
-          </div>
-        </div>
-      `;
-    });
-    
-    goalsCard.innerHTML = `
-      <h4 class="text-lg font-semibold text-gray-900 mb-4">⚽ Top 10 Goal Kickers</h4>
-      <div class="space-y-1">
-        ${goalsList}
-      </div>
-    `;
-    topPerformers.appendChild(goalsCard);
-  }
-  
-  // Create year buttons
-  createTeamYearButtons(details.team);
-  
-  // Clear matches list initially
-  matchesList.innerHTML = '<p class="text-gray-600 text-center py-4">Select a year to view matches.</p>';
+
+  /* ----- leaderboards ----- */
+  topPerfBox.innerHTML =
+    makeLeaderboard('🏆 Top 10 Disposal Getters',
+                    d.top_disposals || [],
+                    'disposals', 'per_game') +
+    makeLeaderboard('⚽ Top 10 Goal Kickers',
+                    d.top_goals     || [],
+                    'goals',      'per_game');
+
+  /* ----- year buttons ----- */
+  createTeamYearButtons(team);
+
+  matchesList.innerHTML =
+    '<p class="text-gray-600 text-center py-4">Select a year to view matches.</p>';
 }
 
-// Accepts team name, fetches years, resets cache, and builds year buttons
+/* helper to render a leaderboard card */
+function makeLeaderboard(title, arr, sumKey, avgKey) {
+  if (!arr.length) return '';
+  return `
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <h4 class="text-lg font-semibold mb-4">${title}</h4>
+      ${arr.map((p, i) => `
+        <div class="flex items-center justify-between py-2 ${i < arr.length-1 ? 'border-b border-gray-100' : ''}">
+          <div class="flex items-center space-x-3">
+            <span class="w-8 text-sm font-medium">${getMedal(i)}</span>
+            <div>
+              <p class="font-medium">${p.full_name}</p>
+              <p class="text-xs text-gray-500">${p.games_played} games</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="font-bold">${p[sumKey]}</p>
+            <p class="text-xs text-gray-500">${(+p[avgKey]).toFixed(1)}/game</p>
+          </div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+/* ------------------------------------------------------------------ */
+/*  6.  Season/year + round views                                     */
+/* ------------------------------------------------------------------ */
 async function createTeamYearButtons(team) {
-  const teamYears  = document.getElementById('team-years');
-  const teamRounds = document.getElementById('team-rounds');
+  const teamYearsDiv  = document.getElementById('team-years');
+  const teamRoundsDiv = document.getElementById('team-rounds');
 
-  teamYears.innerHTML  = '';
-  teamRounds.innerHTML = '';
-  teamRounds.classList.add('hidden');
-  seasonMatches = {}; // reset cache
+  teamYearsDiv.innerHTML  = '';
+  teamRoundsDiv.innerHTML = '';
+  teamRoundsDiv.classList.add('hidden');
 
-  // fetch distinct years from the API
   try {
-    const yearsData = await getTeamMatchYears(team);
-    const years = yearsData.map(y => y.match_year).sort((a, b) => b - a);
+    const yearRows =
+      await getTeamMatchYears(team);   // [{ match_year: 2024 }, …]
+    const years =
+      yearRows.map(r => r.match_year).sort((a, b) => b - a);
 
     years.forEach(year => {
       const btn = document.createElement('button');
-      btn.innerText = year;
-      btn.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
+      btn.textContent =
+        year;   // plain year number
+      btn.className =
+        'px-3 py-1.5 bg-white border border-gray-300 rounded ' +
+        'hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
+
       btn.onclick = () => {
-        document.querySelectorAll('#team-years button').forEach(b => {
-          b.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
-        });
-        btn.className = 'px-3 py-1.5 bg-afl-blue text-white border border-afl-blue rounded text-sm font-medium';
+        document.querySelectorAll('#team-years button').forEach(b =>
+          b.className =
+            'px-3 py-1.5 bg-white border border-gray-300 rounded ' +
+            'hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700'
+        );
+        btn.className =
+          'px-3 py-1.5 bg-afl-blue text-white border border-afl-blue rounded ' +
+          'text-sm font-medium';
+
         showTeamRounds(team, year);
       };
-      teamYears.appendChild(btn);
+
+      teamYearsDiv.appendChild(btn);
     });
   } catch (err) {
     console.error('Year list error', err);
-    teamYears.innerHTML = '<p class="text-red-600">Failed to load years.</p>';
+    teamYearsDiv.innerHTML =
+      '<p class="text-red-600">Failed to load years.</p>';
   }
 }
 
-// Loads and caches matches for a season, then builds round buttons
 async function showTeamRounds(team, year) {
-  const teamRounds = document.getElementById('team-rounds');
-  matchesList.innerHTML = '<p class="text-gray-600 text-center py-4">Loading…</p>';
+  const teamRoundsDiv = document.getElementById('team-rounds');
+  matchesList.innerHTML =
+    '<p class="text-gray-600 text-center py-4">Loading…</p>';
 
-  // fetch season matches if not cached
   if (!seasonMatches[year]) {
     try {
-      seasonMatches[year] = await getTeamMatchesByYear(team, year);
+      seasonMatches[year] =
+        await getTeamMatchesByYear(team, year);  // RPC team_matches
     } catch (err) {
       console.error('Match fetch error', err);
-      matchesList.innerHTML = '<p class="text-red-600 text-center py-4">Failed to load matches.</p>';
+      matchesList.innerHTML =
+        '<p class="text-red-600 text-center py-4">Failed to load matches.</p>';
       return;
     }
   }
 
   const yearGames = seasonMatches[year];
-  const rounds = [...new Set(yearGames.map(g => g.match_round))].sort((a, b) => {
-    const nA = parseInt(a), nB = parseInt(b);
-    if (!isNaN(nA) && !isNaN(nB)) return nA - nB;
-    if (!isNaN(nA)) return -1;
-    if (!isNaN(nB)) return 1;
+  const rounds = [...new Set(yearGames.map(g => g.round))].sort((a, b) => {
+    const aInt = parseInt(a), bInt = parseInt(b);
+    if (!isNaN(aInt) && !isNaN(bInt)) return aInt - bInt;
+    if (!isNaN(aInt)) return -1;
+    if (!isNaN(bInt)) return 1;
     return a.localeCompare(b);
   });
 
-  teamRounds.innerHTML = '';
-  teamRounds.classList.remove('hidden');
+  teamRoundsDiv.innerHTML = '';
+  teamRoundsDiv.classList.remove('hidden');
 
-  rounds.forEach(round => {
+  rounds.forEach(r => {
     const btn = document.createElement('button');
-    btn.textContent = `Round ${round}`;
-    btn.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
+    btn.textContent = `Round ${r}`;
+    btn.className =
+      'px-3 py-1.5 bg-white border border-gray-300 rounded ' +
+      'hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
     btn.onclick = () => {
-      document.querySelectorAll('#team-rounds button').forEach(b => {
-        b.className = 'px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700';
-      });
-      btn.className = 'px-3 py-1.5 bg-afl-blue text-white border border-afl-blue rounded text-sm font-medium';
-      showTeamGames(team, year, round);
+      document.querySelectorAll('#team-rounds button').forEach(b =>
+        b.className =
+          'px-3 py-1.5 bg-white border border-gray-300 rounded ' +
+          'hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700'
+      );
+      btn.className =
+        'px-3 py-1.5 bg-afl-blue text-white border border-afl-blue rounded ' +
+        'text-sm font-medium';
+
+      showTeamGames(team, year, r);
     };
-    teamRounds.appendChild(btn);
+    teamRoundsDiv.appendChild(btn);
   });
 
-  matchesList.innerHTML = '<p class="text-gray-600 text-center py-4">Select a round to view matches.</p>';
+  matchesList.innerHTML =
+    '<p class="text-gray-600 text-center py-4">Select a round to view matches.</p>';
 }
 
-// Uses cached matches for the year to show games for a round
 function showTeamGames(team, year, round) {
-  const games = (seasonMatches[year] || []).filter(g => g.match_round === round);
+  const games = (seasonMatches[year] || []).filter(g => g.round === round);
   matchesList.innerHTML = '';
 
-  if (games.length === 0) {
-    matchesList.innerHTML = '<p class="text-gray-600 text-center py-4">No games found for this round.</p>';
+  if (!games.length) {
+    matchesList.innerHTML =
+      '<p class="text-gray-600 text-center py-4">No games found for this round.</p>';
     return;
   }
 
-  games.forEach(game => {
-    const matchDiv = document.createElement('div');
-    matchDiv.className = 'p-4 border border-gray-200 rounded-lg bg-gray-50';
+  games.forEach(g => {
+    const isHome        = g.match_home_team === team;
+    const opponent      = isHome ? g.match_away_team : g.match_home_team;
+    const teamScore     = isHome ? g.team_score : g.opp_score;
+    const opponentScore = isHome ? g.opp_score : g.team_score;
+    const result        = g.result;
+    const resultColor   = result === 'W' ? 'text-green-600' : 'text-red-600';
+    const homeAway      = isHome ? 'HOME' : 'AWAY';
 
-    const isHome       = game.match_home_team === team;
-    const opponent     = isHome ? game.match_away_team : game.match_home_team;
-    const teamScore    = isHome ? game.match_home_team_score : game.match_away_team_score;
-    const opponentScore= isHome ? game.match_away_team_score : game.match_home_team_score;
-    const result       = game.match_winner === team ? 'W' : 'L';
-    const resultColor  = result === 'W' ? 'text-green-600' : 'text-red-600';
-    const homeAway     = isHome ? 'HOME' : 'AWAY';
+    const div = document.createElement('div');
+    div.className =
+      'p-4 border border-gray-200 rounded-lg bg-gray-50';
 
-    matchDiv.innerHTML = `
+    div.innerHTML = `
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-4">
           <div class="text-center">
@@ -349,53 +362,20 @@ function showTeamGames(team, year, round) {
           </div>
           <div>
             <p class="font-medium text-gray-900">vs ${opponent}</p>
-            <p class="text-sm text-gray-600">${game.match_date} - Round ${game.match_round}</p>
-            <p class="text-sm text-gray-600">${game.venue_name ?? ''}</p>
+            <p class="text-sm text-gray-600">${g.match_date} - Round ${g.round}</p>
+            <p class="text-sm text-gray-600">${g.venue ?? ''}</p>
           </div>
         </div>
         <div class="text-right">
-          <p class="font-semibold text-gray-900 text-lg">${teamScore} - ${opponentScore}</p>
-          <p class="text-sm text-gray-600">Margin: ${Math.abs(game.match_margin || 0)} pts</p>
+          <p class="font-semibold text-gray-900 text-lg">
+            ${teamScore} - ${opponentScore}
+          </p>
+          <p class="text-sm text-gray-600">
+            Margin: ${Math.abs(g.margin || 0)} pts
+          </p>
         </div>
       </div>
     `;
-    matchesList.appendChild(matchDiv);
+    matchesList.appendChild(div);
   });
-}
-
-// Event listeners
-backButton.addEventListener('click', () => {
-  teamDetails.classList.add('hidden');
-  document.querySelector('.max-w-7xl').children[0].style.display = 'block';
-});
-
-// Initialize page
-loadTeams();
-
-// Render a team card with extra info (years, stats, best win, grand final wins)
-async function renderTeamCard(teamName) {
-  const [
-    years,
-    stats,
-    bestWin,
-    grandFinals
-  ] = await Promise.all([
-    getTeamMatchYears(teamName),
-    getTeamStats(teamName),
-    getTeamBestWin(teamName),
-    getGrandFinalWins(teamName)
-  ]);
-
-  const container = document.createElement('div');
-  container.classList.add('team-card');
-
-  container.innerHTML = `
-    <h2>${teamName}</h2>
-    <p><strong>Years Active:</strong> ${years.map(y => y.match_year).join(', ')}</p>
-    <p><strong>Grand Final Wins:</strong> ${grandFinals[0]?.grand_finals_won ?? 0}</p>
-    <p><strong>Top Player:</strong> ${stats[0]?.player_first_name ?? '-'} ${stats[0]?.player_last_name ?? '-'} (${stats[0]?.total_disposals ?? 0} disposals)</p>
-    <p><strong>Best Win:</strong> vs ${bestWin[0]?.opponent ?? '-'} by ${bestWin[0]?.match_margin ?? '-'} on ${bestWin[0]?.match_date?.split('T')[0] ?? '-'}</p>
-  `;
-
-  document.getElementById('teamsContainer').appendChild(container);
 }

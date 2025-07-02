@@ -9,26 +9,6 @@ export async function getTeamMatchYears(teamName) {
   return res.json(); // [{ match_year: 2024 }, ...]
 }
 
-export async function getTeamStats(teamName) {
-  const res = await fetch(`/api/rpc/get_team_stats?team_name=${encodeURIComponent(teamName)}`);
-  return res.json();
-}
-
-export async function getTeamBestWin(teamName) {
-  const res = await fetch(`/api/rpc/get_team_best_win?team_name=${encodeURIComponent(teamName)}`);
-  return res.json();
-}
-
-export async function getGrandFinalWins(teamName) {
-  const res = await fetch(`/api/rpc/get_grand_final_wins?team_name=${encodeURIComponent(teamName)}`);
-  return res.json();
-}
-
-export async function getTeamsWithRanges() {
-  // Use the existing backend route which internally calls the RPC
-  const res = await fetch('/api/teams-all');
-  return res.json();
-}
 // API functions mapped to consolidated endpoints
 const BASE = '/api';
 
@@ -69,6 +49,10 @@ export async function getRoundMatches(year, round) {
 }
 */
 
+/**
+ * Fetch all teams.
+ * Supabase RPC: get_teams  →  /api/teams-all
+ */
 export async function getTeams() {
   try {
     const res = await fetch(`${BASE}/teams-all`);
@@ -89,10 +73,31 @@ export async function getTeams() {
   }
 }
 
-export async function getTeamDetails(teamName) {
-  const res = await fetch(`${BASE}/teams-all?teamName=${encodeURIComponent(teamName)}`);
-  return res.json();
+/**
+ * Fetch the summary JSON for a single team.
+ * Server route: /api/teams-all?teamName=Essendon
+ *
+ * @param {string} teamName – Team name as stored in DB
+ * @returns {Promise<Object>} JSON blob from the team_summary RPC
+ */
+export async function getTeamSummary(teamName) {
+  try {
+    const res = await fetch(
+      `${BASE}/teams-all?teamName=${encodeURIComponent(teamName)}`
+    );
+    if (!res.ok) {
+      console.error('Team summary API error:', res.status, res.statusText);
+      const errorData = await res.text();
+      console.error('Error details:', errorData);
+      return null;
+    }
+    return res.json();
+  } catch (error) {
+    console.error('Failed to fetch team summary:', error);
+    return null;
+  }
 }
+
 
 export async function getPlayersAlphabet() {
   const res = await fetch(`${BASE}/players-all?alphabet=true`);
