@@ -1,5 +1,5 @@
 import {
-  getTeams,
+  getTeamsWithRanges,
   getTeamDetails,
   getTeamMatchYears,
   getTeamStats,
@@ -59,7 +59,7 @@ function getTeamColors(teamName) {
 // Load teams on page load
 async function loadTeams() {
   try {
-    currentTeams = await getTeams();
+    currentTeams = await getTeamsWithRanges();
     renderTeams(currentTeams);
   } catch (error) {
     console.error('Error loading teams:', error);
