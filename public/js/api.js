@@ -1,6 +1,12 @@
 export async function getTeamMatchYears(teamName) {
-  const res = await fetch(`/api/rpc/get_match_years_for_team?team_name=${encodeURIComponent(teamName)}`);
-  return res.json();
+  const res = await fetch(
+    `/api/team-match-years?team=${encodeURIComponent(teamName)}`
+  );
+  if (!res.ok) {
+    console.error('Year fetch API error:', res.status, res.statusText);
+    return [];
+  }
+  return res.json(); // [{ match_year: 2024 }, ...]
 }
 
 export async function getTeamStats(teamName) {
