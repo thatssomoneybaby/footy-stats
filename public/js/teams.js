@@ -116,7 +116,7 @@ function renderTeams(teams) {
         <p class="flex justify-between">
           <span class="font-medium text-gray-700">Years:</span>
           <span class="font-semibold" style="color: var(${colors.primary})">
-            ${t.first_year} - ${t.last_year}
+            ${t.first_season ?? '—'} - ${t.last_season ?? '—'}
           </span>
         </p>
         <p class="flex justify-between">
@@ -144,6 +144,11 @@ function renderTeams(teams) {
 async function loadTeamDetails(team) {
   try {
     const summary = await getTeamSummary(team);   // RPC: team_summary
+    if (!summary) {
+      console.error('Null summary for', team);
+      alert('Sorry — this team summary is unavailable right now.');
+      return;
+    }
     renderTeamDetails(team, summary);
 
     // Switch view
