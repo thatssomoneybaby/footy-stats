@@ -15,14 +15,15 @@ export default async function handler(req, res) {
     process.env.SUPABASE_ANON_KEY
   );
 
-  const { data, error } = await supabase.rpc('get_team_matches_by_year', {
-    team_name: team,
-    season:    parseInt(year, 10)
+  const { data, error } = await supabase.rpc('team_matches', {
+    p_team: team,
+    p_year: parseInt(year, 10)
   });
 
   if (error) {
     console.error(error);
     return res.status(500).json({ error: 'DB error' });
   }
+  res.setHeader('Cache-Control', 'no-store');
   res.json(data);            // array of matches for that season (≤ 40 rows)
 }
