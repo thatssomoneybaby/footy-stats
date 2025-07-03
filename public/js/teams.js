@@ -198,10 +198,10 @@ function renderTeamDetails(team, d) {
   topPerfBox.innerHTML =
     makeLeaderboard('🏆 Top 10 Disposal Getters',
                     d.top_disposals || [],
-                    'disposals', 'per_game') +
+                    'total', 'per_game') +
     makeLeaderboard('⚽ Top 10 Goal Kickers',
                     d.top_goals     || [],
-                    'goals',      'per_game');
+                    'total', 'per_game');
 
   /* ----- year buttons ----- */
   createTeamYearButtons(team);
