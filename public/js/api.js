@@ -14,7 +14,7 @@ const BASE = '/api';
 
 export async function getYears() {
   try {
-    const res = await fetch(`${BASE}/years-all`);
+    const res = await fetch(`${BASE}/years`);
     if (!res.ok) {
       console.error('Years API error:', res.status, res.statusText);
       const errorData = await res.text();
@@ -35,7 +35,7 @@ export async function getYears() {
  * Server route: /api/years-summary?year=2024
  */
 export async function getSeasonSummary(year) {
-  const res = await fetch(`${BASE}/years-summary?year=${year}`);
+  const res = await fetch(`${BASE}/years?year=${year}`);
   if (!res.ok) {
     console.error('Season summary API error:', res.status, res.statusText);
     return null;
@@ -48,7 +48,7 @@ export async function getSeasonSummary(year) {
  * Server route: /api/season-matches?year=2024&rounds=true
  */
 export async function getRoundsForYear(year) {
-  const res = await fetch(`${BASE}/season-matches?year=${year}&rounds=true`);
+  const res = await fetch(`${BASE}/years?year=${year}&rounds=true`);
   if (!res.ok) {
     console.error('Rounds API error:', res.status, res.statusText);
     return [];
@@ -64,8 +64,8 @@ export async function getRoundsForYear(year) {
  */
 export async function getSeasonMatches(year, round = null) {
   const url = round
-    ? `${BASE}/season-matches?year=${year}&round=${encodeURIComponent(round)}`
-    : `${BASE}/season-matches?year=${year}`;
+    ? `${BASE}/years?year=${year}&round=${encodeURIComponent(round)}`
+    : `${BASE}/years?year=${year}`;
   const res = await fetch(url);
   if (!res.ok) {
     console.error('Season matches API error:', res.status, res.statusText);
