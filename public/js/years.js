@@ -137,13 +137,23 @@ function renderSeason(summary, ladderRows, rounds) {
 
 function buildSummaryTiles(s) {
   const div = document.createElement('div');
-  div.className = 'grid grid-cols-2 md:grid-cols-5 gap-4 mb-6';
+  // 7 tiles on desktop, 2 on mobile
+  div.className = 'grid grid-cols-2 md:grid-cols-7 gap-4 mb-6';
+
   div.innerHTML = `
-    ${tile('Matches',          s.total_matches, 'afl-blue')}
-    ${tile('Avg Score',        s.avg_game_score, 'green-700', 'green')}
-    ${tile('Highest Score',    s.highest_score, 'yellow-700', 'yellow')}
-    ${tile('Biggest Margin',   s.biggest_margin, 'purple-700', 'purple')}
-    ${tile('Premiers',         s.premiers ?? '—', 'red-700', 'red', 'text-xl')}
+    ${tile('Matches',           s.total_matches,      'afl-blue')}
+    ${tile('Avg Score',         s.avg_game_score,     'green-700',  'green')}
+    ${tile('Highest Score',     s.highest_score,      'yellow-700', 'yellow')}
+    ${tile('Biggest Margin',    s.biggest_margin,     'purple-700', 'purple')}
+    ${tile('Premiers',          s.premiers ?? '—',    'red-700',    'red', 'text-xl')}
+    ${tile('Top Goals',         s.top_goals_player
+                                  ? `${s.top_goals_player}<br><span class="text-sm font-medium">${s.top_goals_total}</span>`
+                                  : '—',
+                                  'gray-700', 'gray')}
+    ${tile('Top Disposals',     s.top_disposals_player
+                                  ? `${s.top_disposals_player}<br><span class="text-sm font-medium">${s.top_disposals_total}</span>`
+                                  : '—',
+                                  'gray-700', 'gray')}
   `;
   return div;
 }
