@@ -14,7 +14,7 @@ const BASE = '/api';
 
 export async function getYears() {
   try {
-    const res = await fetch(`${BASE}/matches-all?years=true`);
+    const res = await fetch(`${BASE}/years-all`);
     if (!res.ok) {
       console.error('Years API error:', res.status, res.statusText);
       const errorData = await res.text();
@@ -29,22 +29,50 @@ export async function getYears() {
   }
 }
 
-/*
-export async function getMatches(year) {
-  const res = await fetch(`${BASE}/matches-all?year=${year}`);
-  return res.json();
+
+/**
+ * Fetch the high‑level summary for a single AFL season.
+ * Server route: /api/years-summary?year=2024
+ */
+export async function getSeasonSummary(year) {
+  const res = await fetch(`${BASE}/years-summary?year=${year}`);
+  if (!res.ok) {
+    console.error('Season summary API error:', res.status, res.statusText);
+    return null;
+  }
+  return res.json(); // { season, total_matches, avg_game_score, ... }
 }
 
-export async function getRounds(year) {
-  const res = await fetch(`${BASE}/matches-all?year=${year}&rounds=true`);
-  return res.json();
+/**
+ * Fetch the distinct round labels for a season (e.g. "R1", "QF", "GF").
+ * Server route: /api/season-matches?year=2024&rounds=true
+ */
+export async function getRoundsForYear(year) {
+  const res = await fetch(`${BASE}/season-matches?year=${year}&rounds=true`);
+  if (!res.ok) {
+    console.error('Rounds API error:', res.status, res.statusText);
+    return [];
+  }
+  return res.json(); // [{ round: 'R1' }, { round: 'R2' }, ...]
 }
 
-export async function getRoundMatches(year, round) {
-  const res = await fetch(`${BASE}/matches-all?year=${year}&round=${encodeURIComponent(round)}`);
-  return res.json();
+/**
+ * Fetch all matches for a season, or for a specific round.
+ * Server routes:
+ *   /api/season-matches?year=2024
+ *   /api/season-matches?year=2024&round=R5
+ */
+export async function getSeasonMatches(year, round = null) {
+  const url = round
+    ? `${BASE}/season-matches?year=${year}&round=${encodeURIComponent(round)}`
+    : `${BASE}/season-matches?year=${year}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    console.error('Season matches API error:', res.status, res.statusText);
+    return [];
+  }
+  return res.json(); // array of match objects
 }
-*/
 
 /**
  * Fetch all teams.
