@@ -59,13 +59,13 @@ export async function getRoundsForYear(year) {
 /**
  * Fetch all matches for a season, or for a specific round.
  * Server routes:
- *   /api/season-matches?year=2024
+ *   /api/season-matches?year=2024&matches=true
  *   /api/season-matches?year=2024&round=R5
  */
 export async function getSeasonMatches(year, round = null) {
   const url = round
     ? `${BASE}/years?year=${year}&round=${encodeURIComponent(round)}`
-    : `${BASE}/years?year=${year}`;
+    : `${BASE}/years?year=${year}&matches=true`;
   const res = await fetch(url);
   if (!res.ok) {
     console.error('Season matches API error:', res.status, res.statusText);
