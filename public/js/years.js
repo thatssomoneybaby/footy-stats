@@ -1,5 +1,3 @@
-
-
 /* ------------------------------------------------------------------
    Years tab logic
    ---------------------------------------------------------------
@@ -17,7 +15,8 @@ import {
   getYears,
   getSeasonSummary,
   getRoundsForYear,
-  getSeasonMatches
+  getSeasonMatches,
+  getSeasonLadder
 } from './api.js';
 
 /* ------------------------------------------------------------------
@@ -71,7 +70,7 @@ async function loadYears() {
 }
 
 /* ------------------------------------------------------------------
-   Fetch summary + rounds
+   Fetch summary + rounds + ladder
 ------------------------------------------------------------------ */
 async function loadSeason(year) {
   currentYear = year;
@@ -79,10 +78,11 @@ async function loadSeason(year) {
   matchesTable.innerHTML =
     '<p class="text-gray-600 py-4">Loading season data…</p>';
 
-  const [summary, rounds] = await Promise.all([
+  const [summary, rounds, ladder] = await Promise.all([
     getSeasonSummary(year),
     roundsCache[year] ? Promise.resolve(roundsCache[year])
-                      : getRoundsForYear(year)
+                      : getRoundsForYear(year),
+    getSeasonLadder(year)
   ]);
 
   if (!summary) {
@@ -91,14 +91,17 @@ async function loadSeason(year) {
     return;
   }
   roundsCache[year] = rounds;
-  renderSeason(summary, rounds.map(r => r.round));
+  renderSeason(summary, ladder, rounds.map(r => r.round));
 }
 
 /* ------------------------------------------------------------------
-   Render tiles + round buttons
+   Render tiles + ladder + round buttons
 ------------------------------------------------------------------ */
-function renderSeason(summary, rounds) {
+function renderSeason(summary, ladderRows, rounds) {
   matchesTable.innerHTML = '';
+
+  // ladder table
+  matchesTable.appendChild(buildLadderTable(ladderRows));
 
   // summary tiles
   matchesTable.appendChild(buildSummaryTiles(summary));
@@ -151,6 +154,42 @@ function tile(label, value, color, shade = 'blue', extra = '') {
       <p class="font-medium text-${color} mb-1">${label}</p>
       <p class="text-2xl font-bold ${extra}">${value}</p>
     </div>`;
+}
+
+/* ------------------------------------------------------------------
+   Ladder table builder
+------------------------------------------------------------------ */
+function buildLadderTable(rows) {
+  const table = document.createElement('table');
+  table.className = 'w-full text-xs mb-4';
+
+  table.innerHTML = `
+    <thead>
+      <tr class="text-left bg-gray-100">
+        <th class="py-1 px-2">#</th>
+        <th class="py-1 px-2">Team</th>
+        <th class="py-1 px-2 text-right">W</th>
+        <th class="py-1 px-2 text-right">L</th>
+        <th class="py-1 px-2 text-right">D</th>
+        <th class="py-1 px-2 text-right">%</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows
+        .map(
+          r => `<tr class="border-t">
+              <td class="py-0.5 px-2">${r.ladder_pos}</td>
+              <td class="py-0.5 px-2">${r.team}</td>
+              <td class="py-0.5 px-2 text-right">${r.wins}</td>
+              <td class="py-0.5 px-2 text-right">${r.losses}</td>
+              <td class="py-0.5 px-2 text-right">${r.draws}</td>
+              <td class="py-0.5 px-2 text-right">${r.percentage}</td>
+            </tr>`
+        )
+        .join('')}
+    </tbody>
+  `;
+  return table;
 }
 
 /* ------------------------------------------------------------------

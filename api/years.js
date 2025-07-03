@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
-  const { year, rounds, round, matches } = req.query;
+  const { year, rounds, round, matches, ladder } = req.query;
 
   try {
     // 1️⃣  No query params  →  list of seasons
@@ -27,7 +27,14 @@ export default async function handler(req, res) {
       return res.json(data);
     }
 
-    // 3️⃣  ?year=YYYY&matches=true  → all matches for the season
+    // 3️⃣  ?year=YYYY&ladder=true  → full season ladder
+    if (ladder === 'true') {
+      const { data, error } = await sb.rpc('season_ladder', { p_year: yr });
+      if (error) throw error;
+      return res.json(data);      // ordered by ladder_pos
+    }
+
+    // 4️⃣  ?year=YYYY&matches=true  → all matches for the season
     if (matches === 'true') {
       const { data, error } = await sb.rpc('season_matches', {
         p_year: yr,
@@ -37,7 +44,7 @@ export default async function handler(req, res) {
       return res.json(data);
     }
 
-    // 4️⃣  ?year=YYYY&round=RX  → matches for a single round
+    // 5️⃣  ?year=YYYY&round=RX  → matches for a single round
     if (round) {
       const { data, error } = await sb.rpc('season_matches', {
         p_year: yr,
@@ -47,7 +54,7 @@ export default async function handler(req, res) {
       return res.json(data);
     }
 
-    // 5️⃣  ?year=YYYY (no round)  → season summary
+    // 6️⃣  ?year=YYYY (no round)  → season summary
     const { data, error } = await sb.rpc('season_summary', { p_year: yr });
     if (error) throw error;
     return res.json(Array.isArray(data) ? data[0] : data);

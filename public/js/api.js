@@ -32,7 +32,7 @@ export async function getYears() {
 
 /**
  * Fetch the high‑level summary for a single AFL season.
- * Server route: /api/years-summary?year=2024
+ * Server route: /api/years?year=2024
  */
 export async function getSeasonSummary(year) {
   const res = await fetch(`${BASE}/years?year=${year}`);
@@ -45,7 +45,7 @@ export async function getSeasonSummary(year) {
 
 /**
  * Fetch the distinct round labels for a season (e.g. "R1", "QF", "GF").
- * Server route: /api/season-matches?year=2024&rounds=true
+ * Server route: /api/years?year=2024&rounds=true
  */
 export async function getRoundsForYear(year) {
   const res = await fetch(`${BASE}/years?year=${year}&rounds=true`);
@@ -72,6 +72,19 @@ export async function getSeasonMatches(year, round = null) {
     return [];
   }
   return res.json(); // array of match objects
+}
+
+/**
+ * Fetch the ladder for a single season.
+ * Server route: /api/years?year=2024&ladder=true
+ */
+export async function getSeasonLadder(year) {
+  const res = await fetch(`${BASE}/years?year=${year}&ladder=true`);
+  if (!res.ok) {
+    console.error('Season ladder API error:', res.status, res.statusText);
+    return [];
+  }
+  return res.json(); // [{ team, wins, losses, draws, percentage, ladder_pos }, …]
 }
 
 /**
