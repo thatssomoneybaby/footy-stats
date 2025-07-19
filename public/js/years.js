@@ -30,23 +30,23 @@ const TEAM_COLOURS = {
   'Brisbane Lions':        ['--brisbane-dark-pink', '--brisbane-deep-yellow'],
   'Carlton':               ['--carlton-dark-navy',  '--carlton-white'],
   'Collingwood':           ['--collingwood-black',  '--collingwood-white'],
-  'Essendon':              ['--essendon-red',       '--essendon-black'],
+  'Essendon':              ['--essendon-black',       '--essendon-red'],
   'Fremantle':             ['--fremantle-purple',   '--fremantle-gray'],
   'Geelong':               ['--geelong-dark-blue',  '--geelong-white'],
   'Gold Coast':            ['--goldcoast-red',      '--goldcoast-yellow'],
-  'Greater Western Sydney':['--gws-orange',         '--gws-white'],
+  'Greater Western Sydney':['--gws-charcoal',         '--gws-orange'],
   'Hawthorn':              ['--hawthorn-brown',     '--hawthorn-yellow'],
   'Melbourne':             ['--melbourne-dark-blue','--melbourne-red'],
   'North Melbourne':       ['--north-blue',         '--north-white'],
   'Port Adelaide':         ['--portadelaide-black', '--portadelaide-blue'],
   'Richmond':              ['--richmond-yellow',    '--richmond-black'],
-  'St Kilda':              ['--stkilda-red',        '--stkilda-white'],
+  'St Kilda':              ['--stkilda-black',        '--stkilda-red'],
   'Sydney':                ['--sydney-red',         '--sydney-white'],
   'West Coast':            ['--westcoast-blue',     '--westcoast-yellow'],
   'Western Bulldogs':      ['--bulldogs-blue',      '--bulldogs-white'],
   'Footscray':             ['--bulldogs-blue',      '--bulldogs-white'],
-  'Fitzroy':               ['--fitzroy-red',        '--fitzroy-blue'],
-  'University':            ['--university-blue',    '--university-black']
+  'Fitzroy':               ['--fitzroy-blue',        '--fitzroy-yellow'],
+  'University':            ['--university-black',    '--university-blue']
 };
 
 function teamColours(team) {
@@ -135,11 +135,17 @@ async function loadSeason(year) {
 function renderSeason(summary, ladderRows, rounds) {
   matchesTable.innerHTML = '';
 
-  // ladder table
-  matchesTable.appendChild(buildLadderTable(ladderRows));
+  const wrapper = document.createElement('div');
+  wrapper.className = 'flex flex-col md:flex-row gap-6 mb-6 items-start';
 
-  // summary tiles
-  matchesTable.appendChild(buildSummaryTiles(summary));
+  const ladder = buildLadderTable(ladderRows);
+  ladder.classList.add('flex-shrink-0');
+
+  const tiles = buildSummaryTiles(summary);
+
+  wrapper.appendChild(ladder);
+  wrapper.appendChild(tiles);
+  matchesTable.appendChild(wrapper);
 
   // round buttons
   const roundsDiv = document.createElement('div');
@@ -172,8 +178,7 @@ function renderSeason(summary, ladderRows, rounds) {
 
 function buildSummaryTiles(s) {
   const div = document.createElement('div');
-  // 7 tiles on desktop, 2 on mobile
-  div.className = 'grid grid-cols-2 md:grid-cols-7 gap-4 mb-6';
+  div.className = 'grid grid-cols-2 gap-4';
 
   div.innerHTML = `
     ${tile('Matches',           s.total_matches,      'afl-blue')}
