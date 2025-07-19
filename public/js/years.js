@@ -221,7 +221,8 @@ function tile(label, value, defaultTxtColour = 'gray-700', defaultBgShade = 'gra
 ------------------------------------------------------------------ */
 function buildLadderTable(rows) {
   const table = document.createElement('table');
-  table.className = 'text-xs mb-4 w-72 bg-white shadow rounded-lg';
+  // make the ladder a bit wider and allow it to stretch to the same height as the tile stack
+  table.className = 'text-xs mb-4 w-80 md:w-96 bg-white shadow rounded-lg self-stretch';
 
   table.innerHTML = `
     <thead>
