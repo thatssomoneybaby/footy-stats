@@ -20,6 +20,35 @@ import {
 } from './api.js';
 
 /* ------------------------------------------------------------------
+   Team colour helpers
+------------------------------------------------------------------ */
+// Mapping: team name → [background CSS var, text CSS var]
+const TEAM_COLOURS = {
+  'Adelaide':            ['var(--adelaide-bg)',            'var(--adelaide-text)'],
+  'Brisbane':            ['var(--brisbane-bg)',            'var(--brisbane-text)'],
+  'Carlton':             ['var(--carlton-bg)',             'var(--carlton-text)'],
+  'Collingwood':         ['var(--collingwood-bg)',         'var(--collingwood-text)'],
+  'Essendon':            ['var(--essendon-bg)',            'var(--essendon-text)'],
+  'Fremantle':           ['var(--fremantle-bg)',           'var(--fremantle-text)'],
+  'Geelong':             ['var(--geelong-bg)',             'var(--geelong-text)'],
+  'Gold Coast':          ['var(--goldcoast-bg)',           'var(--goldcoast-text)'],
+  'Greater Western Sydney': ['var(--gws-bg)',              'var(--gws-text)'],
+  'Hawthorn':            ['var(--hawthorn-bg)',            'var(--hawthorn-text)'],
+  'Melbourne':           ['var(--melbourne-bg)',           'var(--melbourne-text)'],
+  'North Melbourne':     ['var(--northmelbourne-bg)',      'var(--northmelbourne-text)'],
+  'Port Adelaide':       ['var(--portadelaide-bg)',        'var(--portadelaide-text)'],
+  'Richmond':            ['var(--richmond-bg)',            'var(--richmond-text)'],
+  'St Kilda':            ['var(--stkilda-bg)',             'var(--stkilda-text)'],
+  'Sydney':              ['var(--sydney-bg)',              'var(--sydney-text)'],
+  'West Coast':          ['var(--westcoast-bg)',           'var(--westcoast-text)'],
+  'Western Bulldogs':    ['var(--westernbulldogs-bg)',     'var(--westernbulldogs-text)']
+};
+
+function teamColours(team) {
+  return TEAM_COLOURS[team] || ['var(--neutral-bg)', 'var(--neutral-text)'];
+}
+
+/* ------------------------------------------------------------------
    DOM elements
 ------------------------------------------------------------------ */
 const yearBar      = document.getElementById('year-bar');
@@ -145,24 +174,33 @@ function buildSummaryTiles(s) {
     ${tile('Avg Score',         s.avg_game_score,     'green-700',  'green')}
     ${tile('Highest Score',     s.highest_score,      'yellow-700', 'yellow')}
     ${tile('Biggest Margin',    s.biggest_margin,     'purple-700', 'purple')}
-    ${tile('Premiers',          s.premiers ?? '—',    'red-700',    'red', 'text-xl')}
+    ${tile('Premiers',          s.premiers ?? '—',    'red-700',    'red', s.premiers)}
     ${tile('Top Goals',         s.top_goals_player
                                   ? `${s.top_goals_player}<br><span class="text-sm font-medium">${s.top_goals_total}</span>`
                                   : '—',
-                                  'gray-700', 'gray')}
+                                  'gray-700', 'gray', s.top_goals_team)}
     ${tile('Top Disposals',     s.top_disposals_player
                                   ? `${s.top_disposals_player}<br><span class="text-sm font-medium">${s.top_disposals_total}</span>`
                                   : '—',
-                                  'gray-700', 'gray')}
+                                  'gray-700', 'gray', s.top_disposals_team)}
   `;
   return div;
 }
 
-function tile(label, value, color, shade = 'blue', extra = '') {
+function tile(label, value, defaultTxtColour = 'gray-700', defaultBgShade = 'gray', team = null) {
+  // Determine colours – use team palette if supplied, else fallback shades
+  let bg, txt;
+  if (team) {
+    [bg, txt] = teamColours(team);                     // CSS var colours
+  } else {
+    bg  = `bg-${defaultBgShade}-50`;
+    txt = `text-${defaultTxtColour}`;
+  }
+
   return `
-    <div class="bg-${shade}-50 p-4 rounded-lg text-center">
-      <p class="font-medium text-${color} mb-1">${label}</p>
-      <p class="text-2xl font-bold ${extra}">${value}</p>
+    <div class="${bg} p-4 rounded-lg flex flex-col items-center justify-center text-center">
+      <p class="font-medium ${txt} mb-1">${label}</p>
+      <p class="text-2xl font-bold">${value}</p>
     </div>`;
 }
 
@@ -171,7 +209,7 @@ function tile(label, value, color, shade = 'blue', extra = '') {
 ------------------------------------------------------------------ */
 function buildLadderTable(rows) {
   const table = document.createElement('table');
-  table.className = 'w-full text-xs mb-4';
+  table.className = 'w-auto text-xs mb-4 mx-auto';
 
   table.innerHTML = `
     <thead>
