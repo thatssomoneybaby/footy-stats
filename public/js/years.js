@@ -24,28 +24,34 @@ import {
 ------------------------------------------------------------------ */
 // Mapping: team name → [background CSS var, text CSS var]
 const TEAM_COLOURS = {
-  'Adelaide':            ['var(--adelaide-bg)',            'var(--adelaide-text)'],
-  'Brisbane':            ['var(--brisbane-bg)',            'var(--brisbane-text)'],
-  'Carlton':             ['var(--carlton-bg)',             'var(--carlton-text)'],
-  'Collingwood':         ['var(--collingwood-bg)',         'var(--collingwood-text)'],
-  'Essendon':            ['var(--essendon-bg)',            'var(--essendon-text)'],
-  'Fremantle':           ['var(--fremantle-bg)',           'var(--fremantle-text)'],
-  'Geelong':             ['var(--geelong-bg)',             'var(--geelong-text)'],
-  'Gold Coast':          ['var(--goldcoast-bg)',           'var(--goldcoast-text)'],
-  'Greater Western Sydney': ['var(--gws-bg)',              'var(--gws-text)'],
-  'Hawthorn':            ['var(--hawthorn-bg)',            'var(--hawthorn-text)'],
-  'Melbourne':           ['var(--melbourne-bg)',           'var(--melbourne-text)'],
-  'North Melbourne':     ['var(--northmelbourne-bg)',      'var(--northmelbourne-text)'],
-  'Port Adelaide':       ['var(--portadelaide-bg)',        'var(--portadelaide-text)'],
-  'Richmond':            ['var(--richmond-bg)',            'var(--richmond-text)'],
-  'St Kilda':            ['var(--stkilda-bg)',             'var(--stkilda-text)'],
-  'Sydney':              ['var(--sydney-bg)',              'var(--sydney-text)'],
-  'West Coast':          ['var(--westcoast-bg)',           'var(--westcoast-text)'],
-  'Western Bulldogs':    ['var(--westernbulldogs-bg)',     'var(--westernbulldogs-text)']
+  'Adelaide':              ['--adelaide-dark-blue',  '--adelaide-yellow'],
+  'Brisbane':              ['--brisbane-dark-pink', '--brisbane-deep-yellow'],
+  'Brisbane Bears':        ['--brisbane-dark-pink', '--brisbane-deep-yellow'],
+  'Brisbane Lions':        ['--brisbane-dark-pink', '--brisbane-deep-yellow'],
+  'Carlton':               ['--carlton-dark-navy',  '--carlton-white'],
+  'Collingwood':           ['--collingwood-black',  '--collingwood-white'],
+  'Essendon':              ['--essendon-red',       '--essendon-black'],
+  'Fremantle':             ['--fremantle-purple',   '--fremantle-gray'],
+  'Geelong':               ['--geelong-dark-blue',  '--geelong-white'],
+  'Gold Coast':            ['--goldcoast-red',      '--goldcoast-yellow'],
+  'Greater Western Sydney':['--gws-orange',         '--gws-white'],
+  'Hawthorn':              ['--hawthorn-brown',     '--hawthorn-yellow'],
+  'Melbourne':             ['--melbourne-dark-blue','--melbourne-red'],
+  'North Melbourne':       ['--north-blue',         '--north-white'],
+  'Port Adelaide':         ['--portadelaide-black', '--portadelaide-blue'],
+  'Richmond':              ['--richmond-yellow',    '--richmond-black'],
+  'St Kilda':              ['--stkilda-red',        '--stkilda-white'],
+  'Sydney':                ['--sydney-red',         '--sydney-white'],
+  'West Coast':            ['--westcoast-blue',     '--westcoast-yellow'],
+  'Western Bulldogs':      ['--bulldogs-blue',      '--bulldogs-white'],
+  'Footscray':             ['--bulldogs-blue',      '--bulldogs-white'],
+  'Fitzroy':               ['--fitzroy-red',        '--fitzroy-blue'],
+  'University':            ['--university-blue',    '--university-black']
 };
 
 function teamColours(team) {
-  return TEAM_COLOURS[team] || ['var(--neutral-bg)', 'var(--neutral-text)'];
+  const [bgVar, textVar] = TEAM_COLOURS[team] || ['--neutral-bg', '--neutral-text'];
+  return { bgVar, textVar };
 }
 
 /* ------------------------------------------------------------------
@@ -188,19 +194,20 @@ function buildSummaryTiles(s) {
 }
 
 function tile(label, value, defaultTxtColour = 'gray-700', defaultBgShade = 'gray', team = null) {
-  // Determine colours – use team palette if supplied, else fallback shades
-  let bg, txt;
+  let classes = 'p-4 rounded-lg flex flex-col items-center justify-center text-center';
+  let style   = '';
+
   if (team) {
-    [bg, txt] = teamColours(team);                     // CSS var colours
+    const { bgVar, textVar } = teamColours(team);
+    style = `style="background: var(${bgVar}); color: var(${textVar});"`;
   } else {
-    bg  = `bg-${defaultBgShade}-50`;
-    txt = `text-${defaultTxtColour}`;
+    classes += ` bg-${defaultBgShade}-50 text-${defaultTxtColour}`;
   }
 
   return `
-    <div class="${bg} p-4 rounded-lg flex flex-col items-center justify-center text-center">
-      <p class="font-medium ${txt} mb-1">${label}</p>
-      <p class="text-2xl font-bold">${value}</p>
+    <div class="${classes}" ${style}>
+      <p class="font-medium mb-1">${label}</p>
+      <p class="text-2xl font-bold leading-none">${value}</p>
     </div>`;
 }
 
@@ -209,7 +216,7 @@ function tile(label, value, defaultTxtColour = 'gray-700', defaultBgShade = 'gra
 ------------------------------------------------------------------ */
 function buildLadderTable(rows) {
   const table = document.createElement('table');
-  table.className = 'w-auto text-xs mb-4 mx-auto';
+  table.className = 'text-xs mb-4 mx-auto';
 
   table.innerHTML = `
     <thead>
