@@ -178,7 +178,7 @@ function renderSeason(summary, ladderRows, rounds) {
 
 function buildSummaryTiles(s) {
   const div = document.createElement('div');
-  div.className = 'grid grid-cols-2 gap-4';
+  div.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4';
 
   div.innerHTML = `
     ${tile('Matches',           s.total_matches,      'afl-blue')}
@@ -194,12 +194,32 @@ function buildSummaryTiles(s) {
                                   ? `${s.top_disposals_player}<br><span class="text-sm font-medium">${s.top_disposals_total}</span>`
                                   : '—',
                                   'gray-700', 'gray', s.top_disposals_team)}
+    ${tile('Top Kicks',
+           s.top_kicks_player
+             ? `${s.top_kicks_player}<br><span class="text-sm font-medium">${s.top_kicks_total}</span>`
+             : '—',
+           'gray-700', 'gray', s.top_kicks_team)}
+    ${tile('Top Handballs',
+           s.top_handballs_player
+             ? `${s.top_handballs_player}<br><span class="text-sm font-medium">${s.top_handballs_total}</span>`
+             : '—',
+           'gray-700', 'gray', s.top_handballs_team)}
+    ${tile('Top Marks',
+           s.top_marks_player
+             ? `${s.top_marks_player}<br><span class="text-sm font-medium">${s.top_marks_total}</span>`
+             : '—',
+           'gray-700', 'gray', s.top_marks_team)}
+    ${tile('Top Tackles',
+           s.top_tackles_player
+             ? `${s.top_tackles_player}<br><span class="text-sm font-medium">${s.top_tackles_total}</span>`
+             : '—',
+           'gray-700', 'gray', s.top_tackles_team)}
   `;
   return div;
 }
 
 function tile(label, value, defaultTxtColour = 'gray-700', defaultBgShade = 'gray', team = null) {
-  let classes = 'p-4 rounded-lg flex flex-col items-center justify-center text-center';
+  let classes = 'p-3 rounded-lg flex flex-col items-center justify-center text-center';
   let style   = '';
 
   if (team) {
