@@ -136,7 +136,7 @@ function renderSeason(summary, ladderRows, rounds) {
   matchesTable.innerHTML = '';
 
   const wrapper = document.createElement('div');
-  wrapper.className = 'flex flex-col md:flex-row gap-6 mb-6 items-start';
+  wrapper.className = 'flex flex-col md:flex-row gap-6 mb-6 items-stretch';
 
   const ladder = buildLadderTable(ladderRows);
   ladder.classList.add('flex-shrink-0');
@@ -149,7 +149,7 @@ function renderSeason(summary, ladderRows, rounds) {
 
   // round buttons
   const roundsDiv = document.createElement('div');
-  roundsDiv.className = 'flex flex-wrap gap-2 mb-4';
+  roundsDiv.className = 'flex flex-wrap gap-2 mb-4 px-4';
   rounds.forEach(r => {
     const btn = document.createElement('button');
     btn.textContent = r;
@@ -221,7 +221,7 @@ function tile(label, value, defaultTxtColour = 'gray-700', defaultBgShade = 'gra
 ------------------------------------------------------------------ */
 function buildLadderTable(rows) {
   const table = document.createElement('table');
-  table.className = 'text-xs mb-4 mx-auto';
+  table.className = 'text-xs mb-4 mx-auto w-64 p-4 bg-white shadow rounded-lg';
 
   table.innerHTML = `
     <thead>
