@@ -180,41 +180,71 @@ function buildSummaryTiles(s) {
   const div = document.createElement('div');
   div.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4';
 
-  div.innerHTML = `
-    ${tile('Matches',           s.total_matches,      'afl-blue')}
-    ${tile('Avg Score',         s.avg_game_score,     'green-700',  'green')}
-    ${tile('Highest Score',     s.highest_score,      'yellow-700', 'yellow')}
-    ${tile('Biggest Margin',    s.biggest_margin,     'purple-700', 'purple')}
-    ${tile('Premiers',          s.premiers ?? '—',    'red-700',    'red', s.premiers)}
-    ${tile('Top Goals',         s.top_goals_player
-                                  ? `${s.top_goals_player}<br><span class="text-sm font-medium">${s.top_goals_total}</span>`
-                                  : '—',
-                                  'gray-700', 'gray', s.top_goals_team)}
-    ${tile('Top Disposals',     s.top_disposals_player
-                                  ? `${s.top_disposals_player}<br><span class="text-sm font-medium">${s.top_disposals_total}</span>`
-                                  : '—',
-                                  'gray-700', 'gray', s.top_disposals_team)}
-    ${tile('Top Kicks',
-           s.top_kicks_player
-             ? `${s.top_kicks_player}<br><span class="text-sm font-medium">${s.top_kicks_total}</span>`
-             : '—',
-           'gray-700', 'gray', s.top_kicks_team)}
-    ${tile('Top Handballs',
-           s.top_handballs_player
-             ? `${s.top_handballs_player}<br><span class="text-sm font-medium">${s.top_handballs_total}</span>`
-             : '—',
-           'gray-700', 'gray', s.top_handballs_team)}
-    ${tile('Top Marks',
-           s.top_marks_player
-             ? `${s.top_marks_player}<br><span class="text-sm font-medium">${s.top_marks_total}</span>`
-             : '—',
-           'gray-700', 'gray', s.top_marks_team)}
-    ${tile('Top Tackles',
-           s.top_tackles_player
-             ? `${s.top_tackles_player}<br><span class="text-sm font-medium">${s.top_tackles_total}</span>`
-             : '—',
-           'gray-700', 'gray', s.top_tackles_team)}
+  /** Always‑present season tiles */
+  div.innerHTML += `
+    ${tile('Matches',        s.total_matches,       'afl-blue')}
+    ${tile('Avg Score',      s.avg_game_score,      'green-700',  'green')}
+    ${tile('Highest Score',  s.highest_score,       'yellow-700', 'yellow')}
+    ${tile('Biggest Margin', s.biggest_margin,      'purple-700', 'purple')}
   `;
+
+  /** Data‑driven tiles that should only appear when we actually have data */
+  const maybeTiles = [
+    {
+      label : 'Premiers',
+      value : s.premiers ?? null,
+      team  : s.premiers ?? null
+    },
+    {
+      label : 'Top Goals',
+      value : s.top_goals_player
+                ? `${s.top_goals_player}<br><span class="text-sm font-medium">${s.top_goals_total}</span>`
+                : null,
+      team  : s.top_goals_team ?? null
+    },
+    {
+      label : 'Top Disposals',
+      value : s.top_disposals_player
+                ? `${s.top_disposals_player}<br><span class="text-sm font-medium">${s.top_disposals_total}</span>`
+                : null,
+      team  : s.top_disposals_team ?? null
+    },
+    {
+      label : 'Top Kicks',
+      value : s.top_kicks_player
+                ? `${s.top_kicks_player}<br><span class="text-sm font-medium">${s.top_kicks_total}</span>`
+                : null,
+      team  : s.top_kicks_team ?? null
+    },
+    {
+      label : 'Top Handballs',
+      value : s.top_handballs_player
+                ? `${s.top_handballs_player}<br><span class="text-sm font-medium">${s.top_handballs_total}</span>`
+                : null,
+      team  : s.top_handballs_team ?? null
+    },
+    {
+      label : 'Top Marks',
+      value : s.top_marks_player
+                ? `${s.top_marks_player}<br><span class="text-sm font-medium">${s.top_marks_total}</span>`
+                : null,
+      team  : s.top_marks_team ?? null
+    },
+    {
+      label : 'Top Tackles',
+      value : s.top_tackles_player
+                ? `${s.top_tackles_player}<br><span class="text-sm font-medium">${s.top_tackles_total}</span>`
+                : null,
+      team  : s.top_tackles_team ?? null
+    }
+  ];
+
+  maybeTiles
+    .filter(t => t.value !== null && t.value !== undefined)
+    .forEach(t => {
+      div.innerHTML += tile(t.label, t.value, 'gray-700', 'gray', t.team);
+    });
+
   return div;
 }
 
