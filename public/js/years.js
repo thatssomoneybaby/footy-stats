@@ -55,6 +55,14 @@ function teamColours(team) {
 }
 
 /* ------------------------------------------------------------------
+   Simple helper: do we have a real stat?
+------------------------------------------------------------------ */
+function hasStat(player, total) {
+  // treat null / undefined / 0 / non‑numeric totals as “no data”
+  return player && total && Number(total) > 0;
+}
+
+/* ------------------------------------------------------------------
    DOM elements
 ------------------------------------------------------------------ */
 const yearBar      = document.getElementById('year-bar');
@@ -197,42 +205,42 @@ function buildSummaryTiles(s) {
     },
     {
       label : 'Top Goals',
-      value : s.top_goals_player
+      value : hasStat(s.top_goals_player, s.top_goals_total)
                 ? `${s.top_goals_player}<br><span class="text-sm font-medium">${s.top_goals_total}</span>`
                 : null,
       team  : s.top_goals_team ?? null
     },
     {
       label : 'Top Disposals',
-      value : s.top_disposals_player
+      value : hasStat(s.top_disposals_player, s.top_disposals_total)
                 ? `${s.top_disposals_player}<br><span class="text-sm font-medium">${s.top_disposals_total}</span>`
                 : null,
       team  : s.top_disposals_team ?? null
     },
     {
       label : 'Top Kicks',
-      value : s.top_kicks_player
+      value : hasStat(s.top_kicks_player, s.top_kicks_total)
                 ? `${s.top_kicks_player}<br><span class="text-sm font-medium">${s.top_kicks_total}</span>`
                 : null,
       team  : s.top_kicks_team ?? null
     },
     {
       label : 'Top Handballs',
-      value : s.top_handballs_player
+      value : hasStat(s.top_handballs_player, s.top_handballs_total)
                 ? `${s.top_handballs_player}<br><span class="text-sm font-medium">${s.top_handballs_total}</span>`
                 : null,
       team  : s.top_handballs_team ?? null
     },
     {
       label : 'Top Marks',
-      value : s.top_marks_player
+      value : hasStat(s.top_marks_player, s.top_marks_total)
                 ? `${s.top_marks_player}<br><span class="text-sm font-medium">${s.top_marks_total}</span>`
                 : null,
       team  : s.top_marks_team ?? null
     },
     {
       label : 'Top Tackles',
-      value : s.top_tackles_player
+      value : hasStat(s.top_tackles_player, s.top_tackles_total)
                 ? `${s.top_tackles_player}<br><span class="text-sm font-medium">${s.top_tackles_total}</span>`
                 : null,
       team  : s.top_tackles_team ?? null
