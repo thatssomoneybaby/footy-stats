@@ -56,10 +56,13 @@ function teamColours(team) {
 
 /* ------------------------------------------------------------------
    Simple helper: do we have a real stat?
+   Returns true only for a defined player name AND a positive, finite total
 ------------------------------------------------------------------ */
 function hasStat(player, total) {
-  // treat null / undefined / 0 / non‑numeric totals as “no data”
-  return player && total && Number(total) > 0;
+  if (!player) return false;                         // no player → no stat
+  if (total === null || total === undefined) return false;
+  const n = Number(total);
+  return Number.isFinite(n) && n > 0;
 }
 
 /* ------------------------------------------------------------------
@@ -186,7 +189,8 @@ function renderSeason(summary, ladderRows, rounds) {
 
 function buildSummaryTiles(s) {
   const div = document.createElement('div');
-  div.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4';
+  // widen grid on large screens so 5‑6 tiles fit without large gaps
+  div.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4';
 
   /** Always‑present season tiles */
   div.innerHTML += `
@@ -196,59 +200,56 @@ function buildSummaryTiles(s) {
     ${tile('Biggest Margin', s.biggest_margin,      'purple-700', 'purple')}
   `;
 
-  /** Data‑driven tiles that should only appear when we actually have data */
-  const maybeTiles = [
+  /* ----------------------------------------------------------------
+     Optional data‑driven tiles – only include when we truly have data
+  -----------------------------------------------------------------*/
+  const maybeTilesSpec = [
     {
       label : 'Premiers',
-      value : s.premiers ?? null,
-      team  : s.premiers ?? null
+      ok    : !!s.premiers,
+      value : s.premiers,
+      team  : s.premiers
     },
     {
       label : 'Top Goals',
-      value : hasStat(s.top_goals_player, s.top_goals_total)
-                ? `${s.top_goals_player}<br><span class="text-sm font-medium">${s.top_goals_total}</span>`
-                : null,
-      team  : s.top_goals_team ?? null
+      ok    : hasStat(s.top_goals_player, s.top_goals_total),
+      value : `${s.top_goals_player}<br><span class="text-sm font-medium">${s.top_goals_total}</span>`,
+      team  : s.top_goals_team
     },
     {
       label : 'Top Disposals',
-      value : hasStat(s.top_disposals_player, s.top_disposals_total)
-                ? `${s.top_disposals_player}<br><span class="text-sm font-medium">${s.top_disposals_total}</span>`
-                : null,
-      team  : s.top_disposals_team ?? null
+      ok    : hasStat(s.top_disposals_player, s.top_disposals_total),
+      value : `${s.top_disposals_player}<br><span class="text-sm font-medium">${s.top_disposals_total}</span>`,
+      team  : s.top_disposals_team
     },
     {
       label : 'Top Kicks',
-      value : hasStat(s.top_kicks_player, s.top_kicks_total)
-                ? `${s.top_kicks_player}<br><span class="text-sm font-medium">${s.top_kicks_total}</span>`
-                : null,
-      team  : s.top_kicks_team ?? null
+      ok    : hasStat(s.top_kicks_player, s.top_kicks_total),
+      value : `${s.top_kicks_player}<br><span class="text-sm font-medium">${s.top_kicks_total}</span>`,
+      team  : s.top_kicks_team
     },
     {
       label : 'Top Handballs',
-      value : hasStat(s.top_handballs_player, s.top_handballs_total)
-                ? `${s.top_handballs_player}<br><span class="text-sm font-medium">${s.top_handballs_total}</span>`
-                : null,
-      team  : s.top_handballs_team ?? null
+      ok    : hasStat(s.top_handballs_player, s.top_handballs_total),
+      value : `${s.top_handballs_player}<br><span class="text-sm font-medium">${s.top_handballs_total}</span>`,
+      team  : s.top_handballs_team
     },
     {
       label : 'Top Marks',
-      value : hasStat(s.top_marks_player, s.top_marks_total)
-                ? `${s.top_marks_player}<br><span class="text-sm font-medium">${s.top_marks_total}</span>`
-                : null,
-      team  : s.top_marks_team ?? null
+      ok    : hasStat(s.top_marks_player, s.top_marks_total),
+      value : `${s.top_marks_player}<br><span class="text-sm font-medium">${s.top_marks_total}</span>`,
+      team  : s.top_marks_team
     },
     {
       label : 'Top Tackles',
-      value : hasStat(s.top_tackles_player, s.top_tackles_total)
-                ? `${s.top_tackles_player}<br><span class="text-sm font-medium">${s.top_tackles_total}</span>`
-                : null,
-      team  : s.top_tackles_team ?? null
+      ok    : hasStat(s.top_tackles_player, s.top_tackles_total),
+      value : `${s.top_tackles_player}<br><span class="text-sm font-medium">${s.top_tackles_total}</span>`,
+      team  : s.top_tackles_team
     }
   ];
 
-  maybeTiles
-    .filter(t => t.value !== null && t.value !== undefined)
+  maybeTilesSpec
+    .filter(t => t.ok)
     .forEach(t => {
       div.innerHTML += tile(t.label, t.value, 'gray-700', 'gray', t.team);
     });
