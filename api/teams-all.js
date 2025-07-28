@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 /**
  * GET /api/teams-all
  *   – no query                 ➜ get_teams()          (full list)
- *   – ?teamName=Essendon       ➜ team_summary('Essendon')
+ *   – ?teamName=Essendon       ➜ get_team_summary('Essendon')
  *
  * Adds Cache‑Control: no-store while we debug so Vercel never serves a
  * stale response.
@@ -31,12 +31,12 @@ export default async function handler(req, res) {
       // -------------------------------------------------------------------
       //  Single team summary
       // -------------------------------------------------------------------
-      const { data, error } = await supabase.rpc('team_summary', {
-        p_team: teamName
+      const { data, error } = await supabase.rpc('get_team_summary', {
+        team_name: teamName
       });
       if (error) throw error;
 
-      console.log('team_summary rows:', data?.length);
+      console.log('get_team_summary rows:', data ? 1 : 0);
 
       const payload = Array.isArray(data) ? data[0] : data;
       res.setHeader('Cache-Control', 'no-store');

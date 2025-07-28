@@ -1,5 +1,3 @@
-import { supabase } from '../utils/supabaseClient'; // adjust path if needed
-
 export async function getTeamMatchYears(teamName) {
   const res = await fetch(
     `/api/team-match-years?team=${encodeURIComponent(teamName)}`
@@ -118,16 +116,21 @@ export async function getTeams() {
  * @returns {Promise<Object>} JSON blob from the team_summary RPC
  */
 export async function getTeamSummary(teamName) {
-  // Direct RPC call to Supabase function `get_team_summary`
-  const { data, error } = await supabase.rpc('get_team_summary', {
-    team_name: teamName
-  });
-
-  if (error) {
-    console.error('Team summary RPC error:', error);
+  try {
+    const res = await fetch(
+      `${BASE}/teams-all?teamName=${encodeURIComponent(teamName)}`
+    );
+    if (!res.ok) {
+      console.error('Team summary API error:', res.status, res.statusText);
+      const errorData = await res.text();
+      console.error('Error details:', errorData);
+      return null;
+    }
+    return res.json();
+  } catch (error) {
+    console.error('Failed to fetch team summary:', error);
     return null;
   }
-  return data;
 }
 
 
