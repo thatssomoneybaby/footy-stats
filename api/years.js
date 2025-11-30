@@ -22,15 +22,26 @@ export default async function handler(req, res) {
     if (rounds === 'true') {
       const { data, error } = await sbClient.rpc('get_rounds_for_year', { p_year: yr });
       if (error) throw error;
+      // Map DB shape → UI: { round }
+      const rows = (data || []).map(r => ({ round: r.round ?? r.round_number ?? r.label ?? String(r) }));
       res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=30');
-      return res.json(data);
+      return res.json(rows);
     }
 
     // 3️⃣  ?year=YYYY&ladder=true  → full season ladder
     if (ladder === 'true') {
       const { data, error } = await sbClient.rpc('season_ladder', { p_year: yr });
       if (error) throw error;
-      return res.json(data);      // ordered by ladder_pos
+      // Ensure ladder_pos is present; map common aliases
+      const rows = (data || []).map((r, idx) => ({
+        ladder_pos: r.ladder_pos ?? r.position ?? r.rank ?? (idx + 1),
+        team: r.team ?? r.team_name ?? r.club ?? '',
+        wins: r.wins ?? r.w ?? 0,
+        losses: r.losses ?? r.l ?? 0,
+        draws: r.draws ?? r.d ?? 0,
+        percentage: r.percentage ?? r.pct ?? 0
+      }));
+      return res.json(rows);
     }
 
     // 4️⃣  ?year=YYYY&matches=true  → all matches for the season
@@ -40,7 +51,19 @@ export default async function handler(req, res) {
         p_round: null        // null returns every round
       });
       if (error) throw error;
-      return res.json(data);
+      const rows = (data || []).map(m => ({
+        match_id: m.match_id,
+        match_date: m.match_date,
+        round: m.round ?? m.round_number ?? m.match_round,
+        venue: m.venue ?? m.venue_name,
+        match_home_team: m.match_home_team ?? m.home_team,
+        match_away_team: m.match_away_team ?? m.away_team,
+        match_home_score: m.match_home_score ?? m.home_score,
+        match_away_score: m.match_away_score ?? m.away_score,
+        margin: m.margin,
+        winner: m.winner
+      }));
+      return res.json(rows);
     }
 
     // 5️⃣  ?year=YYYY&round=RX  → matches for a single round
@@ -50,13 +73,54 @@ export default async function handler(req, res) {
         p_round: round
       });
       if (error) throw error;
-      return res.json(data);
+      const rows = (data || []).map(m => ({
+        match_id: m.match_id,
+        match_date: m.match_date,
+        round: m.round ?? m.round_number ?? m.match_round,
+        venue: m.venue ?? m.venue_name,
+        match_home_team: m.match_home_team ?? m.home_team,
+        match_away_team: m.match_away_team ?? m.away_team,
+        match_home_score: m.match_home_score ?? m.home_score,
+        match_away_score: m.match_away_score ?? m.away_score,
+        margin: m.margin,
+        winner: m.winner
+      }));
+      return res.json(rows);
     }
 
     // 6️⃣  ?year=YYYY (no round)  → season summary
     const { data, error } = await sbClient.rpc('season_summary', { p_year: yr });
     if (error) throw error;
-    return res.json(Array.isArray(data) ? data[0] : data);
+    const row = Array.isArray(data) ? data[0] : data;
+    // Map DB → UI keys for summary tiles (ensure no undefineds)
+    const mapped = {
+      season: row?.season ?? yr,
+      total_matches: row?.games ?? row?.total_matches ?? row?.total_games ?? 0,
+      avg_game_score: row?.avg_total_points_per_game ?? row?.avg_game_score ?? 0,
+      highest_score: row?.highest_score ?? row?.highest_team_score ?? 0,
+      biggest_margin: row?.biggest_margin ?? 0,
+      // Pass through optional fields when present (used by optional tiles)
+      premiers: row?.premiers ?? null,
+      top_goals_player: row?.top_goals_player ?? null,
+      top_goals_total: row?.top_goals_total ?? null,
+      top_goals_team: row?.top_goals_team ?? null,
+      top_disposals_player: row?.top_disposals_player ?? null,
+      top_disposals_total: row?.top_disposals_total ?? null,
+      top_disposals_team: row?.top_disposals_team ?? null,
+      top_kicks_player: row?.top_kicks_player ?? null,
+      top_kicks_total: row?.top_kicks_total ?? null,
+      top_kicks_team: row?.top_kicks_team ?? null,
+      top_handballs_player: row?.top_handballs_player ?? null,
+      top_handballs_total: row?.top_handballs_total ?? null,
+      top_handballs_team: row?.top_handballs_team ?? null,
+      top_marks_player: row?.top_marks_player ?? null,
+      top_marks_total: row?.top_marks_total ?? null,
+      top_marks_team: row?.top_marks_team ?? null,
+      top_tackles_player: row?.top_tackles_player ?? null,
+      top_tackles_total: row?.top_tackles_total ?? null,
+      top_tackles_team: row?.top_tackles_team ?? null
+    };
+    return res.json(mapped);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'DB error' });
