@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "vercel dev",
-    "start": "vercel start",
-    "build": "vercel build"
+    "start": "node -e 'console.log(\"Use vercel dev locally\")'",
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
