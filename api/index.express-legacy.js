@@ -1,3 +1,4 @@
+// LEGACY: Express server retained for reference only. Not used by Vercel.
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';

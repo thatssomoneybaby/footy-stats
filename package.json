@@ -6,9 +6,9 @@
     "node": ">=18.x"
   },
   "scripts": {
-    "dev": "node api/index.js",
-    "start": "node api/index.js",
-    "build": "echo 'Build completed'"
+    "dev": "vercel dev",
+    "start": "vercel start",
+    "build": "vercel build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

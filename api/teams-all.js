@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../db.js';
 
 /**
  * GET /api/teams-all
@@ -16,13 +16,9 @@ export default async function handler(req, res) {
   // -----------------------------------------------------------------------
   //  Supabase client (anon key)
   // -----------------------------------------------------------------------
-  const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return res
-      .status(500)
-      .json({ error: 'Missing Supabase credentials in environment' });
+  if (!process.env.SUPABASE_URL) {
+    return res.status(500).json({ error: 'Missing Supabase config' });
   }
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const { teamName } = req.query;
 
@@ -31,9 +27,7 @@ export default async function handler(req, res) {
       // -------------------------------------------------------------------
       //  Single team summary
       // -------------------------------------------------------------------
-      const { data, error } = await supabase.rpc('get_team_summary', {
-        team_name: teamName
-      });
+      const { data, error } = await supabase.rpc('get_team_summary', { p_team: teamName });
       if (error) throw error;
 
       console.log('get_team_summary rows:', data ? 1 : 0);

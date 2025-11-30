@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../db.js';
 
 export default async function handler(req, res) {
   try {
@@ -18,11 +18,6 @@ export default async function handler(req, res) {
         }
       });
     }
-
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_ANON_KEY
-    );
 
     // Test basic connection
     const { data, error, count } = await supabase

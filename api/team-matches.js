@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../db.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -9,11 +9,6 @@ export default async function handler(req, res) {
   if (!team || !year) {
     return res.status(400).json({ error: 'Query needs ?team=&year=' });
   }
-
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
 
   const { data, error } = await supabase.rpc('team_matches', {
     p_team: team,

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../../db.js';
 
 export default async function handler(req, res) {
   const { home, away } = req.query;
@@ -10,11 +10,6 @@ export default async function handler(req, res) {
   const cleanAway = clean(away);
 
   console.log('Cleaned values sent to RPC:', { cleanHome, cleanAway });
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
-
   // Get total unique meetings via Postgres function
   const { data: totalCount, error: countError } = await supabase
     .rpc('count_head_to_head', { home_team: cleanHome, away_team: cleanAway });
@@ -45,22 +40,22 @@ export default async function handler(req, res) {
   };
 
   const { data: games, error } = await supabase
-    .from('afl_data')
+    .from('mv_season_matches')
     .select(`
       match_id,
       match_date,
       venue_name,
-      match_home_team,
-      match_away_team,
-      match_winner,
-      match_margin,
-      match_home_team_score,
-      match_away_team_score,
-      match_round
+      home_team,
+      away_team,
+      winner,
+      margin,
+      home_score,
+      away_score,
+      round_number
     `)
-    .or(`and(match_home_team.eq.${home},match_away_team.eq.${away}),and(match_home_team.eq.${away},match_away_team.eq.${home})`)
+    .or(`and(home_team.eq.${cleanHome},away_team.eq.${cleanAway}),and(home_team.eq.${cleanAway},away_team.eq.${cleanHome})`)
     .order('match_date', { ascending: false })
-    .limit(10000);
+    .limit(5000);
 
   if (error) return res.status(500).json({ error });
 
@@ -78,19 +73,19 @@ export default async function handler(req, res) {
     match_date: g.match_date,
     venue_name: g.venue_name,
     // original fields for UI wiring
-    match_home_team: g.match_home_team,
-    match_away_team: g.match_away_team,
-    match_winner: g.match_winner,
-    match_home_team_score: g.match_home_team_score,
-    match_away_team_score: g.match_away_team_score,
+    match_home_team: g.home_team,
+    match_away_team: g.away_team,
+    match_winner: g.winner,
+    match_home_team_score: g.home_score,
+    match_away_team_score: g.away_score,
     // aliases for convenience
-    homeTeam: g.match_home_team,
-    awayTeam: g.match_away_team,
-    winner: g.match_winner,
-    homeScore: g.match_home_team_score,
-    awayScore: g.match_away_team_score,
-    margin: g.match_margin,
-    match_round: g.match_round
+    homeTeam: g.home_team,
+    awayTeam: g.away_team,
+    winner: g.winner,
+    homeScore: g.home_score,
+    awayScore: g.away_score,
+    margin: g.margin,
+    match_round: g.round_number
   }));
 
 
@@ -104,13 +99,12 @@ export default async function handler(req, res) {
 
   let topGoals = [], topDisposals = [];
   if (lastMeeting) {
-    const { data: players } = await supabase
-      .from('afl_data')
-      .select('player_first_name, player_last_name, player_team, goals, disposals')
-      .eq('match_id', lastMeeting.match_id);
-
-    topGoals     = players.sort((a,b)=>b.goals - a.goals).slice(0,3);
-    topDisposals = players.sort((a,b)=>b.disposals - a.disposals).slice(0,3);
+    const { data: players, error: pErr } = await supabase
+      .rpc('head_to_head_last_meeting_players', { p_home: cleanHome, p_away: cleanAway });
+    if (!pErr && players) {
+      topGoals     = [...players].sort((a,b)=> (b.goals||0) - (a.goals||0)).slice(0,3);
+      topDisposals = [...players].sort((a,b)=> (b.disposals||0) - (a.disposals||0)).slice(0,3);
+    }
   }
 
   res.status(200).json({

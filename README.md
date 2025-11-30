@@ -13,7 +13,7 @@ A modern web application for displaying AFL (Australian Football League) statist
 ## 🚀 Technology Stack
 
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **Backend**: Node.js with Express
+- **Backend**: Vercel serverless functions (Node.js)
 - **Database**: Supabase (PostgreSQL)
 - **Deployment**: Vercel
 - **Data**: AFL match and player statistics
@@ -22,11 +22,12 @@ A modern web application for displaying AFL (Australian Football League) statist
 
 ```
 ├── api/                    # Vercel serverless functions
-│   ├── matches-all.js     # Years, rounds, and match data
 │   ├── stats-all.js       # Statistics and analytics
 │   ├── players-all.js     # Player data and search
 │   ├── teams-all.js       # Team information
-│   └── index.js           # Backup Express server
+│   ├── years.js           # Seasons, rounds, ladder, matches
+│   ├── live-stream.js     # SSE proxy to Squiggle
+│   └── index.express-legacy.js  # Legacy Express (not used)
 ├── public/                # Static frontend files
 │   ├── css/              # Stylesheets
 │   ├── js/               # JavaScript modules
@@ -58,7 +59,7 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 # Install dependencies
 npm install
 
-# Run development server
+# Run development server (requires Vercel CLI)
 npm run dev
 ```
 
@@ -82,9 +83,11 @@ vercel --prod
 ## 📊 API Endpoints
 
 ### Matches & Years
-- `GET /api/matches-all?years=true` - Get all available years
-- `GET /api/matches-all?year=2023&rounds=true` - Get rounds for a year
-- `GET /api/matches-all?year=2023&round=1` - Get matches for specific round
+- `GET /api/years` - Get all available years
+- `GET /api/years?year=2023&rounds=true` - Get rounds for a year
+- `GET /api/years?year=2023&matches=true` - Get all matches for a season
+- `GET /api/years?year=2023&round=R1` - Get matches for specific round
+- `GET /api/years?year=2023&ladder=true` - Get the ladder
 
 ### Teams
 - `GET /api/teams-all` - Get all teams
@@ -99,6 +102,9 @@ vercel --prod
 - `GET /api/stats-all?type=trophy-room` - Get trophy room data
 - `GET /api/stats-all?type=hall-of-records` - Get hall of records
 - `GET /api/stats-all?type=insights` - Get latest insights
+
+Deprecated
+- `GET /api/stats-all?type=team-details` — Deprecated. The Teams page uses `/api/teams-all?teamName=...` for summaries and leaderboards.
 
 ## 🔧 Recent Updates
 
