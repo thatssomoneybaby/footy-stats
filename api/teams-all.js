@@ -53,6 +53,48 @@ export default async function handler(req, res) {
       if (used) console.log('Team summary RPC used:', used);
 
       const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+
+      // Also pull leaders from mv_team_player_careers if RPC did not include them
+      // This uses read-only access and limits to top-10 per metric
+      const teamKey = row?.team_name ?? row?.team ?? teamName;
+      const [dispQ, goalsQ] = await Promise.all([
+        supabase
+          .from('mv_team_player_careers')
+          .select('player_first_name, player_last_name, player_name, team, games, disposals, goals')
+          .eq('team', teamKey)
+          .order('disposals', { ascending: false })
+          .limit(10),
+        supabase
+          .from('mv_team_player_careers')
+          .select('player_first_name, player_last_name, player_name, team, games, disposals, goals')
+          .eq('team', teamKey)
+          .order('goals', { ascending: false })
+          .limit(10)
+      ]);
+
+      const mapPlayer = (p, which) => {
+        const full = p.player_name || `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim();
+        const games = Number(p.games ?? p.games_played ?? 0) || 0;
+        const totals = {
+          goals: Number(p.goals ?? p.total_goals ?? 0) || 0,
+          disposals: Number(p.disposals ?? p.total_disposals ?? 0) || 0
+        };
+        const total = which === 'goals' ? totals.goals : totals.disposals;
+        const perGame = games ? +(total / games).toFixed(1) : 0.0;
+        return {
+          full_name: full,
+          games_played: games,
+          total,
+          per_game: perGame
+        };
+      };
+
+      const topDisposalsArr = Array.isArray(dispQ.data)
+        ? dispQ.data.map(p => mapPlayer(p, 'disposals'))
+        : [];
+      const topGoalsArr = Array.isArray(goalsQ.data)
+        ? goalsQ.data.map(p => mapPlayer(p, 'goals'))
+        : [];
       // Map DB → UI shape expected by public/js/teams.js
       // Normalize win rate to a number; avoid string toFixed here
       const winRateNum = (() => {
@@ -77,13 +119,13 @@ export default async function handler(req, res) {
         biggest_win: row?.biggest_win ?? row?.biggest_margin ?? 0,
         grand_finals: row?.grand_finals ?? row?.premierships ?? 0,
         // Leaderboards per club
-        top_disposals: (row?.top_disposals || []).map(p => ({
+        top_disposals: (row?.top_disposals && row.top_disposals.length ? row.top_disposals : topDisposalsArr).map(p => ({
           full_name: p.full_name ?? p.player_name ?? `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
           games_played: p.games_played ?? p.games ?? 0,
           total: p.total ?? p.value ?? p.disposals ?? 0,
           per_game: p.per_game ?? p.value_per_game ?? (p.games ? (p.total / p.games).toFixed(1) : '0.0')
         })),
-        top_goals: (row?.top_goals || []).map(p => ({
+        top_goals: (row?.top_goals && row.top_goals.length ? row.top_goals : topGoalsArr).map(p => ({
           full_name: p.full_name ?? p.player_name ?? `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
           games_played: p.games_played ?? p.games ?? 0,
           total: p.total ?? p.value ?? p.goals ?? 0,
