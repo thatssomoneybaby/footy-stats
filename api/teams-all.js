@@ -57,7 +57,7 @@ export default async function handler(req, res) {
       // Also pull leaders from mv_team_player_careers if RPC did not include them
       // This uses read-only access and limits to top-10 per metric
       const teamKey = row?.team_name ?? row?.team ?? teamName;
-      const [dispQ, goalsQ] = await Promise.all([
+      const [dispQ, goalsQ, gamesQ] = await Promise.all([
         supabase
           .from('mv_team_player_careers')
           .select('player_first_name, player_last_name, player_name, team, games, disposals, goals')
@@ -69,6 +69,12 @@ export default async function handler(req, res) {
           .select('player_first_name, player_last_name, player_name, team, games, disposals, goals')
           .eq('team', teamKey)
           .order('goals', { ascending: false })
+          .limit(10),
+        supabase
+          .from('mv_team_player_careers')
+          .select('player_first_name, player_last_name, player_name, team, games')
+          .eq('team', teamKey)
+          .order('games', { ascending: false })
           .limit(10)
       ]);
 
@@ -95,6 +101,12 @@ export default async function handler(req, res) {
       const topGoalsArr = Array.isArray(goalsQ.data)
         ? goalsQ.data.map(p => mapPlayer(p, 'goals'))
         : [];
+      const topGamesArr = Array.isArray(gamesQ.data)
+        ? gamesQ.data.map(p => ({
+            full_name: p.player_name || `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
+            games_played: Number(p.games ?? 0) || 0
+          }))
+        : [];
       // Map DB → UI shape expected by public/js/teams.js
       // Normalize win rate to a number; avoid string toFixed here
       const winRateNum = (() => {
@@ -114,7 +126,7 @@ export default async function handler(req, res) {
         // Load all matches involving the team
         const { data: matches, error: mErr } = await supabase
           .from('mv_season_matches')
-          .select('home_team, away_team, home_score, away_score, winner, margin')
+          .select('home_team, away_team, home_score, away_score, winner, margin, match_date, venue_name, round_number, match_round')
           .or(`home_team.eq.${team},away_team.eq.${team}`)
           .limit(50000);
         if (mErr) {
@@ -124,16 +136,43 @@ export default async function handler(req, res) {
         const rows = Array.isArray(matches) ? matches : [];
 
         let highestScore = 0;
+        let highestScoreDetail = null;
         let biggestWin = 0;
+        let biggestWinDetail = null;
         for (const r of rows) {
           const teamScore = (r.home_team === team)
             ? Number(r.home_score ?? 0)
             : Number(r.away_score ?? 0);
           if (Number.isFinite(teamScore) && teamScore > highestScore) highestScore = teamScore;
+          if (Number.isFinite(teamScore) && teamScore >= highestScore) {
+            const oppScore = (r.home_team === team) ? Number(r.away_score ?? 0) : Number(r.home_score ?? 0);
+            highestScoreDetail = {
+              season: (() => { try { return Number(String(r.match_date).slice(0,4)) || null; } catch { return null; } })(),
+              round_number: r.round_number ?? r.match_round ?? null,
+              opponent: (r.home_team === team) ? r.away_team : r.home_team,
+              venue_name: r.venue_name ?? null,
+              score_for: teamScore,
+              score_against: Number(oppScore) || 0,
+              margin: Number(r.margin ?? 0) || 0
+            };
+          }
 
           if (r.winner === team) {
             const mg = Number(r.margin ?? 0);
-            if (Number.isFinite(mg) && mg > biggestWin) biggestWin = mg;
+            if (Number.isFinite(mg) && mg >= biggestWin) {
+              biggestWin = mg;
+              const teamScore2 = (r.home_team === team) ? Number(r.home_score ?? 0) : Number(r.away_score ?? 0);
+              const oppScore2 = (r.home_team === team) ? Number(r.away_score ?? 0) : Number(r.home_score ?? 0);
+              biggestWinDetail = {
+                season: (() => { try { return Number(String(r.match_date).slice(0,4)) || null; } catch { return null; } })(),
+                round_number: r.round_number ?? r.match_round ?? null,
+                opponent: (r.home_team === team) ? r.away_team : r.home_team,
+                venue_name: r.venue_name ?? null,
+                score_for: Number(teamScore2) || 0,
+                score_against: Number(oppScore2) || 0,
+                margin: Number(r.margin ?? 0) || 0
+              };
+            }
           }
         }
 
@@ -151,17 +190,39 @@ export default async function handler(req, res) {
           console.error('GF count exception:', e);
         }
 
+        // Collect premiership years (GF rows)
+        let premiershipYears = [];
+        try {
+          const { data: gfRows, error: gfRowsErr } = await supabase
+            .from('mv_season_matches')
+            .select('match_date')
+            .eq('winner', team)
+            .ilike('round_number', 'GF%')
+            .limit(50000);
+          if (!gfRowsErr && Array.isArray(gfRows)) {
+            const years = gfRows
+              .map(r => Number(String(r.match_date).slice(0,4)))
+              .filter(n => Number.isFinite(n));
+            premiershipYears = Array.from(new Set(years)).sort((a,b) => a - b);
+          }
+        } catch (e) {
+          console.error('GF years fetch exception:', e);
+        }
+
         // Historical seasons without a GF but with a premiership: override list
         const SPECIAL_PREMIERSHIPS = {
           'Essendon': [1897, 1924]
         };
-        const extra = (SPECIAL_PREMIERSHIPS[team] || []).length;
-        grandFinals += extra;
+        const extras = SPECIAL_PREMIERSHIPS[team] || [];
+        if (extras.length) {
+          grandFinals += extras.length;
+          premiershipYears = Array.from(new Set([...(premiershipYears || []), ...extras])).sort((a,b) => a - b);
+        }
 
-        return { highestScore, biggestWin, grandFinals };
+        return { highestScore, highestScoreDetail, biggestWin, biggestWinDetail, grandFinals, premiershipYears };
       }
 
-      const { highestScore, biggestWin, grandFinals } = await deriveFromMatches(teamKey);
+      const { highestScore, highestScoreDetail, biggestWin, biggestWinDetail, grandFinals, premiershipYears } = await deriveFromMatches(teamKey);
 
       const payload = {
         team_name: row?.team_name ?? row?.team ?? teamName,
@@ -170,8 +231,11 @@ export default async function handler(req, res) {
         total_matches: row?.total_matches ?? row?.games ?? 0,
         win_rate_pct: winRateNum,
         highest_score: Number.isFinite(Number(row?.highest_score)) ? Number(row.highest_score) : highestScore,
+        highest_score_detail: highestScoreDetail,
         biggest_win: Number.isFinite(Number(row?.biggest_win ?? row?.biggest_margin)) ? Number(row?.biggest_win ?? row?.biggest_margin) : biggestWin,
+        biggest_win_detail: biggestWinDetail,
         grand_finals: Number.isFinite(Number(row?.grand_finals ?? row?.premierships)) ? Number(row?.grand_finals ?? row?.premierships) : grandFinals,
+        premiership_years: premiershipYears,
         // Leaderboards per club
         top_disposals: (row?.top_disposals && row.top_disposals.length ? row.top_disposals : topDisposalsArr).map(p => ({
           full_name: p.full_name ?? p.player_name ?? `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
@@ -184,7 +248,8 @@ export default async function handler(req, res) {
           games_played: p.games_played ?? p.games ?? 0,
           total: p.total ?? p.value ?? p.goals ?? 0,
           per_game: p.per_game ?? p.value_per_game ?? (p.games ? (p.total / p.games).toFixed(1) : '0.0')
-        }))
+        })),
+        top_games: topGamesArr
       };
       res.setHeader('Cache-Control', 'no-store');
       return res.json(payload);

@@ -171,8 +171,12 @@ function renderTeamDetails(team, d) {
     highest_score = 0,
     biggest_win = 0,
     grand_finals = 0,
+    premiership_years = [],
+    highest_score_detail = null,
+    biggest_win_detail = null,
     top_disposals = [],
-    top_goals = []
+    top_goals = [],
+    top_games = []
   } = d || {};
 
   const totalMatches = Number(total_matches) || 0;
@@ -181,37 +185,63 @@ function renderTeamDetails(team, d) {
   const bigWin       = Number(biggest_win) || 0;
   const premierships = Number(grand_finals) || 0;
 
+  // Build tooltips
+  const premTooltip = Array.isArray(premiership_years) && premiership_years.length
+    ? `Premiership years: ${premiership_years.join(', ')}`
+    : '';
+  const hsTooltip = highest_score_detail
+    ? `${highest_score_detail.score_for} vs ${highest_score_detail.score_against} vs ${highest_score_detail.opponent} – ${highest_score_detail.round_number}, ${highest_score_detail.season}${highest_score_detail.venue_name ? ` (${highest_score_detail.venue_name})` : ''}`
+    : '';
+  const bwTooltip = biggest_win_detail
+    ? `${biggest_win_detail.score_for} vs ${biggest_win_detail.score_against} vs ${biggest_win_detail.opponent} – ${biggest_win_detail.round_number}, ${biggest_win_detail.season}${biggest_win_detail.venue_name ? ` (${biggest_win_detail.venue_name})` : ''}`
+    : '';
+
   teamSummaryBox.innerHTML = `
-    <div class="bg-blue-50 p-4 rounded-lg">
+    <div class="bg-blue-50 p-4 rounded-lg" title="Total matches played">
       <h4 class="font-semibold text-afl-blue mb-1">Total Matches</h4>
       <p class="text-2xl font-bold text-gray-900">${totalMatches}</p>
     </div>
-    <div class="bg-green-50 p-4 rounded-lg">
+    <div class="bg-green-50 p-4 rounded-lg" title="Win percentage">
       <h4 class="font-semibold text-green-700 mb-1">Win Rate</h4>
       <p class="text-2xl font-bold text-gray-900">${winPctNum.toFixed(1)}%</p>
     </div>
-    <div class="bg-yellow-50 p-4 rounded-lg">
+    <div class="bg-yellow-50 p-4 rounded-lg" title="${hsTooltip}">
       <h4 class="font-semibold text-yellow-700 mb-1">Highest Score</h4>
       <p class="text-2xl font-bold text-gray-900">${highScore}</p>
     </div>
-    <div class="bg-red-50 p-4 rounded-lg">
+    <div class="bg-red-50 p-4 rounded-lg" title="${bwTooltip}">
       <h4 class="font-semibold text-red-700 mb-1">Biggest Win</h4>
       <p class="text-2xl font-bold text-gray-900">${bigWin} pts</p>
     </div>
-    <div class="bg-purple-50 p-4 rounded-lg">
+    <div class="bg-purple-50 p-4 rounded-lg" ${premTooltip ? `title="${premTooltip}"` : ''}>
       <h4 class="font-semibold text-purple-700 mb-1">Premierships</h4>
       <p class="text-2xl font-bold text-gray-900">${premierships}</p>
     </div>
   `;
 
   /* ----- leaderboards ----- */
-  topPerfBox.innerHTML =
+  // Ensure 3-column on large screens
+  topPerfBox.className = 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6';
+
+  const parts = [];
+  parts.push(
     makeLeaderboard('🏆 Top 10 Disposal Getters',
                     Array.isArray(top_disposals) ? top_disposals : [],
-                    'total', 'per_game') +
+                    'total', 'per_game')
+  );
+  parts.push(
     makeLeaderboard('⚽ Top 10 Goal Kickers',
                     Array.isArray(top_goals) ? top_goals : [],
-                    'total', 'per_game');
+                    'total', 'per_game')
+  );
+  if (Array.isArray(top_games) && top_games.length) {
+    parts.push(
+      makeSimpleLeaderboard('⏱️ Top 10 Games Played',
+                            top_games,
+                            'games_played', 'games')
+    );
+  }
+  topPerfBox.innerHTML = parts.join('');
 
   /* ----- year buttons ----- */
   createTeamYearButtons(team);
@@ -227,17 +257,39 @@ function makeLeaderboard(title, arr, sumKey, avgKey) {
     <div class="bg-white border border-gray-200 rounded-lg p-6">
       <h4 class="text-lg font-semibold mb-4">${title}</h4>
       ${arr.map((p, i) => `
-        <div class="flex items-center justify-between py-2 ${i < arr.length-1 ? 'border-b border-gray-100' : ''}">
-          <div class="flex items-center space-x-3">
+        <div class="flex items-center justify-between gap-2 py-2 ${i < arr.length-1 ? 'border-b border-gray-100' : ''} text-sm">
+          <div class="flex items-center gap-2">
             <span class="w-8 text-sm font-medium">${getMedal(i)}</span>
             <div>
               <p class="font-medium">${p.full_name}</p>
               <p class="text-xs text-gray-500">${p.games_played} games</p>
             </div>
           </div>
-          <div class="text-right">
+          <div class="text-right text-sm">
             <p class="font-bold">${p[sumKey]}</p>
             <p class="text-xs text-gray-500">${(+p[avgKey]).toFixed(1)}/game</p>
+          </div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+// Simple leaderboard for single value (e.g., games played)
+function makeSimpleLeaderboard(title, arr, valueKey, suffix = '') {
+  if (!arr.length) return '';
+  return `
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <h4 class="text-lg font-semibold mb-4">${title}</h4>
+      ${arr.map((p, i) => `
+        <div class="flex items-center justify-between gap-2 py-2 ${i < arr.length-1 ? 'border-b border-gray-100' : ''} text-sm">
+          <div class="flex items-center gap-2">
+            <span class="w-8 text-sm font-medium">${getMedal(i)}</span>
+            <div>
+              <p class="font-medium">${p.full_name}</p>
+            </div>
+          </div>
+          <div class="text-right text-sm">
+            <p class="font-bold">${p[valueKey]}${suffix ? ' ' + suffix : ''}</p>
           </div>
         </div>`).join('')}
     </div>
