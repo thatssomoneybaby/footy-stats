@@ -27,9 +27,32 @@ export default async function handler(req, res) {
       // -------------------------------------------------------------------
       //  Single team summary
       // -------------------------------------------------------------------
-      const { data, error } = await supabase.rpc('get_team_summary', { p_team: teamName });
-      if (error) throw error;
-      const row = Array.isArray(data) ? data[0] : data;
+      // Try a few common RPC/param name combinations for robustness
+      const tries = [
+        { fn: 'get_team_summary', args: { p_team: teamName } },
+        { fn: 'get_team_summary', args: { team_name: teamName } },
+        { fn: 'team_summary',     args: { p_team: teamName } },
+        { fn: 'team_summary',     args: { team_name: teamName } }
+      ];
+
+      let rpcData = null;
+      let rpcError = null;
+      let used = null;
+      for (const t of tries) {
+        const { data, error } = await supabase.rpc(t.fn, t.args);
+        if (!error && data) { rpcData = data; used = t; break; }
+        rpcError = error;
+      }
+      if (!rpcData) {
+        console.error('Supabase get_team_summary failure', {
+          lastTried: tries[tries.length - 1],
+          error: rpcError
+        });
+        throw rpcError || new Error('No data returned from team summary RPC');
+      }
+      if (used) console.log('Team summary RPC used:', used);
+
+      const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
       // Map DB → UI shape expected by public/js/teams.js
       const payload = {
         team_name: row?.team_name ?? row?.team ?? teamName,
@@ -76,6 +99,6 @@ export default async function handler(req, res) {
     console.error('Supabase RPC error:', err);
     return res
       .status(500)
-      .json({ error: 'Failed to fetch team data', details: err.message });
+      .json({ error: 'Failed to fetch team data', details: err?.message || String(err) });
   }
 }
