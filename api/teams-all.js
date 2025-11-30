@@ -109,15 +109,74 @@ export default async function handler(req, res) {
         return 0;
       })();
 
+      // Derive extra summary stats from mv_season_matches
+      async function deriveFromMatches(team) {
+        // Load all matches involving the team
+        const { data: matches, error: mErr } = await supabase
+          .from('mv_season_matches')
+          .select('home_team, away_team, home_score, away_score, winner, margin')
+          .or(`home_team.eq.${team},away_team.eq.${team}`)
+          .limit(50000);
+        if (mErr) {
+          console.error('mv_season_matches query error:', mErr);
+          return { highestScore: 0, biggestWin: 0, grandFinals: 0 };
+        }
+        const rows = Array.isArray(matches) ? matches : [];
+
+        let highestScore = 0;
+        let biggestWin = 0;
+        for (const r of rows) {
+          const teamScore = (r.home_team === team)
+            ? Number(r.home_score ?? 0)
+            : Number(r.away_score ?? 0);
+          if (Number.isFinite(teamScore) && teamScore > highestScore) highestScore = teamScore;
+
+          if (r.winner === team) {
+            const mg = Number(r.margin ?? 0);
+            if (Number.isFinite(mg) && mg > biggestWin) biggestWin = mg;
+          }
+        }
+
+        // Grand Finals won: attempt several column variants defensively
+        async function countPremiershipsBy(col) {
+          const sel = `winner, ${col}`;
+          const { data, error } = await supabase
+            .from('mv_season_matches')
+            .select(sel)
+            .eq('winner', team)
+            .limit(50000);
+          if (error) return null;
+          const arr = Array.isArray(data) ? data : [];
+          if (col === 'is_premiership') {
+            return arr.filter(r => r.is_premiership === true).length;
+          }
+          // Treat string-based GF labels
+          return arr.filter(r => String(r[col] ?? '').toUpperCase() === 'GF').length;
+        }
+
+        let grandFinals = 0;
+        const gfTries = ['round_number', 'match_round', 'round_short', 'is_premiership'];
+        for (const c of gfTries) {
+          try {
+            const cnt = await countPremiershipsBy(c);
+            if (typeof cnt === 'number') { grandFinals = cnt; break; }
+          } catch (_) {}
+        }
+
+        return { highestScore, biggestWin, grandFinals };
+      }
+
+      const { highestScore, biggestWin, grandFinals } = await deriveFromMatches(teamKey);
+
       const payload = {
         team_name: row?.team_name ?? row?.team ?? teamName,
         first_season: row?.first_season ?? row?.first_year ?? null,
         last_season: row?.last_season ?? row?.last_year ?? null,
         total_matches: row?.total_matches ?? row?.games ?? 0,
         win_rate_pct: winRateNum,
-        highest_score: row?.highest_score ?? 0,
-        biggest_win: row?.biggest_win ?? row?.biggest_margin ?? 0,
-        grand_finals: row?.grand_finals ?? row?.premierships ?? 0,
+        highest_score: Number.isFinite(Number(row?.highest_score)) ? Number(row.highest_score) : highestScore,
+        biggest_win: Number.isFinite(Number(row?.biggest_win ?? row?.biggest_margin)) ? Number(row?.biggest_win ?? row?.biggest_margin) : biggestWin,
+        grand_finals: Number.isFinite(Number(row?.grand_finals ?? row?.premierships)) ? Number(row?.grand_finals ?? row?.premierships) : grandFinals,
         // Leaderboards per club
         top_disposals: (row?.top_disposals && row.top_disposals.length ? row.top_disposals : topDisposalsArr).map(p => ({
           full_name: p.full_name ?? p.player_name ?? `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
