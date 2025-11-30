@@ -153,15 +153,12 @@ function renderSeason(summary, ladderRows, rounds) {
   ladder.classList.add('flex-shrink-0');
 
   const tiles = buildSummaryTiles(summary);
-  const honours = buildSeasonHonours(summary);
 
   wrapper.appendChild(ladder);
   wrapper.appendChild(tiles);
   matchesTable.appendChild(wrapper);
 
-  if (honours) {
-    matchesTable.appendChild(honours);
-  }
+  // honours now surfaced as cards within the tiles block
 
   // round buttons (ensure numerical order e.g. R1, R2, …, EF, QF, SF, PF, GF)
   const roundsDiv = document.createElement('div');
@@ -218,6 +215,33 @@ function buildSummaryTiles(s) {
     ${tile('Biggest Margin', s.biggest_margin,      'purple-700', 'purple')}
   `;
 
+  // Honours cards (render conditionally)
+  if (s.premiers) {
+    div.innerHTML += tile('Premiers', s.premiers, 'gray-700', 'gray', s.premiers);
+  }
+
+  if (hasStat(s.top_goals_player, s.top_goals_total)) {
+    const sub = `${s.top_goals_team ? `${s.top_goals_team} – ` : ''}${s.top_goals_total} goals`;
+    div.innerHTML += tile(
+      'Leading Goalkicker',
+      `${s.top_goals_player}<br><span class="text-sm font-medium">${sub}</span>`,
+      'gray-700',
+      'gray',
+      s.top_goals_team || null
+    );
+  }
+
+  if (hasStat(s.top_disposals_player, s.top_disposals_total)) {
+    const sub = `${s.top_disposals_team ? `${s.top_disposals_team} – ` : ''}${s.top_disposals_total} disposals`;
+    div.innerHTML += tile(
+      'Disposals Leader',
+      `${s.top_disposals_player}<br><span class="text-sm font-medium">${sub}</span>`,
+      'gray-700',
+      'gray',
+      s.top_disposals_team || null
+    );
+  }
+
   return div;
 }
 
@@ -239,30 +263,7 @@ function tile(label, value, defaultTxtColour = 'gray-700', defaultBgShade = 'gra
     </div>`;
 }
 
-/* ------------------------------------------------------------------
-   Season honours band (Premiers, Leading Goalkicker, Disposals Leader)
------------------------------------------------------------------- */
-function buildSeasonHonours(s) {
-  const hasPremiers   = !!s.premiers;
-  const hasGoalsLead  = !!s.top_goals_player && Number(s.top_goals_total) > 0;
-  const hasDispLead   = !!s.top_disposals_player && Number(s.top_disposals_total) > 0;
-
-  if (!hasPremiers && !hasGoalsLead && !hasDispLead) return null;
-
-  const box = document.createElement('div');
-  box.className = 'px-4';
-  box.innerHTML = `
-    <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-      <h4 class="text-sm font-semibold text-gray-700 mb-2">Season honours</h4>
-      <div class="text-sm text-gray-800 space-y-1">
-        ${hasPremiers ? `<div>Premiers: <span class="font-semibold">${s.premiers}</span></div>` : ''}
-        ${hasGoalsLead ? `<div>Leading Goalkicker: <span class="font-semibold">${s.top_goals_player}</span>${s.top_goals_team ? ` (${s.top_goals_team})` : ''} – ${s.top_goals_total} goals</div>` : ''}
-        ${hasDispLead ? `<div>Disposals Leader: <span class="font-semibold">${s.top_disposals_player}</span>${s.top_disposals_team ? ` (${s.top_disposals_team})` : ''} – ${s.top_disposals_total} disposals</div>` : ''}
-      </div>
-    </div>
-  `;
-  return box;
-}
+/* Honours block removed; represented as cards above */
 
 /* ------------------------------------------------------------------
    Ladder table builder
