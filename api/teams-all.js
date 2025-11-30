@@ -151,6 +151,13 @@ export default async function handler(req, res) {
           console.error('GF count exception:', e);
         }
 
+        // Historical seasons without a GF but with a premiership: override list
+        const SPECIAL_PREMIERSHIPS = {
+          'Essendon': [1897, 1924]
+        };
+        const extra = (SPECIAL_PREMIERSHIPS[team] || []).length;
+        grandFinals += extra;
+
         return { highestScore, biggestWin, grandFinals };
       }
 
