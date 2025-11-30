@@ -164,12 +164,22 @@ function renderTeamDetails(team, d) {
   /* ----- top header ----- */
   teamNameH2.textContent = team;
 
-  /* ----- summary tiles ----- */
-  const totalMatches = d.total_matches ?? 0;
-  const winPct       = d.win_rate_pct  ?? 0;
-  const highScore    = d.highest_score ?? 0;
-  const bigWin       = d.biggest_win   ?? 0;
-  const premierships = d.grand_finals  ?? 0;
+  /* ----- summary tiles (defensive mapping + numeric coercion) ----- */
+  const {
+    total_matches = 0,
+    win_rate_pct = 0,
+    highest_score = 0,
+    biggest_win = 0,
+    grand_finals = 0,
+    top_disposals = [],
+    top_goals = []
+  } = d || {};
+
+  const totalMatches = Number(total_matches) || 0;
+  const winPctNum    = Number(win_rate_pct) || 0;
+  const highScore    = Number(highest_score) || 0;
+  const bigWin       = Number(biggest_win) || 0;
+  const premierships = Number(grand_finals) || 0;
 
   teamSummaryBox.innerHTML = `
     <div class="bg-blue-50 p-4 rounded-lg">
@@ -178,7 +188,7 @@ function renderTeamDetails(team, d) {
     </div>
     <div class="bg-green-50 p-4 rounded-lg">
       <h4 class="font-semibold text-green-700 mb-1">Win Rate</h4>
-      <p class="text-2xl font-bold text-gray-900">${winPct.toFixed(1)}%</p>
+      <p class="text-2xl font-bold text-gray-900">${winPctNum.toFixed(1)}%</p>
     </div>
     <div class="bg-yellow-50 p-4 rounded-lg">
       <h4 class="font-semibold text-yellow-700 mb-1">Highest Score</h4>
@@ -197,10 +207,10 @@ function renderTeamDetails(team, d) {
   /* ----- leaderboards ----- */
   topPerfBox.innerHTML =
     makeLeaderboard('🏆 Top 10 Disposal Getters',
-                    d.top_disposals || [],
+                    Array.isArray(top_disposals) ? top_disposals : [],
                     'total', 'per_game') +
     makeLeaderboard('⚽ Top 10 Goal Kickers',
-                    d.top_goals     || [],
+                    Array.isArray(top_goals) ? top_goals : [],
                     'total', 'per_game');
 
   /* ----- year buttons ----- */

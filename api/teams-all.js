@@ -54,12 +54,25 @@ export default async function handler(req, res) {
 
       const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
       // Map DB → UI shape expected by public/js/teams.js
+      // Normalize win rate to a number; avoid string toFixed here
+      const winRateNum = (() => {
+        if (row?.win_rate_pct != null) {
+          const n = Number(row.win_rate_pct);
+          if (Number.isFinite(n)) return n;
+        }
+        if (row?.games) {
+          const n = ((row?.wins ?? 0) / row.games) * 100;
+          if (Number.isFinite(n)) return n;
+        }
+        return 0;
+      })();
+
       const payload = {
         team_name: row?.team_name ?? row?.team ?? teamName,
         first_season: row?.first_season ?? row?.first_year ?? null,
         last_season: row?.last_season ?? row?.last_year ?? null,
         total_matches: row?.total_matches ?? row?.games ?? 0,
-        win_rate_pct: row?.win_rate_pct ?? (row?.games ? ((row?.wins ?? 0) / row.games * 100).toFixed(1) : 0),
+        win_rate_pct: winRateNum,
         highest_score: row?.highest_score ?? 0,
         biggest_win: row?.biggest_win ?? row?.biggest_margin ?? 0,
         grand_finals: row?.grand_finals ?? row?.premierships ?? 0,
