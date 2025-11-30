@@ -137,30 +137,18 @@ export default async function handler(req, res) {
           }
         }
 
-        // Grand Finals won: attempt several column variants defensively
-        async function countPremiershipsBy(col) {
-          const sel = `winner, ${col}`;
-          const { data, error } = await supabase
-            .from('mv_season_matches')
-            .select(sel)
-            .eq('winner', team)
-            .limit(50000);
-          if (error) return null;
-          const arr = Array.isArray(data) ? data : [];
-          if (col === 'is_premiership') {
-            return arr.filter(r => r.is_premiership === true).length;
-          }
-          // Treat string-based GF labels
-          return arr.filter(r => String(r[col] ?? '').toUpperCase() === 'GF').length;
-        }
-
+        // Canonical premiership count: count mv_season_matches where round_number ILIKE 'GF%' and winner = team
         let grandFinals = 0;
-        const gfTries = ['round_number', 'match_round', 'round_short', 'is_premiership'];
-        for (const c of gfTries) {
-          try {
-            const cnt = await countPremiershipsBy(c);
-            if (typeof cnt === 'number') { grandFinals = cnt; break; }
-          } catch (_) {}
+        try {
+          const { count, error: gfErr } = await supabase
+            .from('mv_season_matches')
+            .select('match_id', { count: 'exact', head: true })
+            .eq('winner', team)
+            .ilike('round_number', 'GF%');
+          if (!gfErr && typeof count === 'number') grandFinals = count;
+          else if (gfErr) console.error('GF count error:', gfErr);
+        } catch (e) {
+          console.error('GF count exception:', e);
         }
 
         return { highestScore, biggestWin, grandFinals };
