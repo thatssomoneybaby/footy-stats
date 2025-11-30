@@ -11,11 +11,15 @@ export default async function handler(req, res) {
     // Using shared Supabase client
 
     if (alphabet === 'true') {
-      // Players alphabet endpoint - use efficient SQL function
+      // Players alphabet endpoint → normalize to { letter, count }
       const { data: alphabetData, error } = await supabase
         .rpc('get_player_alphabet');
       if (error) return res.status(500).json({ error: 'Failed to fetch player alphabet' });
-      res.json(alphabetData);
+      const rows = (alphabetData || []).map(r => ({
+        letter: r.letter ?? r.initial ?? r.first_letter ?? '',
+        count: r.count ?? r.player_count ?? r.total ?? 0,
+      }));
+      return res.json(rows);
       
     } else if (playerId) {
       // RPCs only: career summary + seasons + recent games
@@ -73,10 +77,29 @@ export default async function handler(req, res) {
       return res.json({ player, seasons, allGames });
       
     } else if (letter) {
-      // Players by letter - single RPC
-      const { data: players, error } = await supabase.rpc('get_players_by_letter', { p_letter: letter });
+      // Players by letter - single RPC → map to UI shape
+      const { data, error } = await supabase.rpc('get_players_by_letter', { p_letter: letter });
       if (error) return res.status(500).json({ error: 'Failed to fetch players', details: error.message });
-      res.json(players);
+      const rows = (data || []).map(p => {
+        const name = p.player_name || `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim();
+        const [first, ...rest] = name.split(' ');
+        const games = Number(p.games ?? p.total_games ?? 0) || 0;
+        const disposals = Number(p.disposals ?? p.total_disposals ?? 0) || 0;
+        const goals = Number(p.goals ?? p.total_goals ?? 0) || 0;
+        return {
+          player_id: p.player_id,
+          player_first_name: p.player_first_name ?? first ?? '',
+          player_last_name: p.player_last_name ?? rest.join(' '),
+          first_year: p.first_season ?? p.first_year ?? null,
+          last_year: p.last_season ?? p.last_year ?? null,
+          total_games: games,
+          total_disposals: disposals,
+          total_goals: goals,
+          avg_disposals: games ? (disposals / games).toFixed(1) : '0.0',
+          avg_goals: games ? (goals / games).toFixed(1) : '0.0'
+        };
+      });
+      return res.json(rows);
       
     } else {
       res.status(400).json({ error: 'Missing required parameter' });

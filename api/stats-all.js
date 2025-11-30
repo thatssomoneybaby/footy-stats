@@ -23,14 +23,15 @@ export default async function handler(req, res) {
         tackles:    { name: 'Total Tackles',    icon: '💪', category: 'Defence' }
       };
 
-      const byStat = data.reduce((acc, r) => {
-        if (!acc[r.stat_key]) acc[r.stat_key] = [];
-        acc[r.stat_key].push(r);
+      const byStat = (data || []).reduce((acc, r) => {
+        const key = String(r.stat_key || '').toLowerCase();
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(r);
         return acc;
       }, {});
 
       const trophies = Object.entries(wanted).map(([key, meta]) => {
-        const rows = (byStat[key] || []).sort((a,b) => b.value - a.value);
+        const rows = (byStat[key] || []).sort((a,b) => Number(b.value||0) - Number(a.value||0));
         const top = rows[0];
         if (!top) return null;
         const [first, ...rest] = (top.player_name || '').split(' ');
@@ -42,8 +43,8 @@ export default async function handler(req, res) {
             player_first_name: first || '',
             player_last_name: rest.join(' '),
             player_id: top.player_id,
-            stat_value: top.value,
-            games_played: top.games
+            stat_value: Number(top.value || 0),
+            games_played: Number(top.games || 0)
           }
         };
       }).filter(Boolean);
@@ -103,20 +104,22 @@ export default async function handler(req, res) {
       });
 
       // Group rows into categories and stats
-      for (const row of data) {
-        const meta = categoryMeta[row.category] || categoryMeta.scoring;
+      for (const row of (data || [])) {
+        const categoryKey = String(row.category || '').toLowerCase();
+        const meta = categoryMeta[categoryKey] || categoryMeta.scoring;
         const cat = hallOfRecords[meta.title];
-        if (!cat.records[row.stat_label]) {
-          cat.records[row.stat_label] = { icon: meta.icon, top10: [] };
+        const statLabel = row.stat_label || row.stat_key || 'Stat';
+        if (!cat.records[statLabel]) {
+          cat.records[statLabel] = { icon: meta.icon, top10: [] };
         }
         const [first, ...rest] = (row.player_name || '').split(' ');
-        cat.records[row.stat_label].top10.push({
+        cat.records[statLabel].top10.push({
           player_first_name: first || '',
           player_last_name: rest.join(' '),
           player_id: row.player_id,
-          stat_value: row.value,
-          games_played: row.games,
-          avg_per_game: Number(row.value_per_game).toFixed(1),
+          stat_value: Number(row.value || 0),
+          games_played: Number(row.games || 0),
+          avg_per_game: Number(row.value_per_game || 0).toFixed(1),
           first_year: row.season,
           last_year: row.season
         });

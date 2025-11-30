@@ -29,10 +29,31 @@ export default async function handler(req, res) {
       // -------------------------------------------------------------------
       const { data, error } = await supabase.rpc('get_team_summary', { p_team: teamName });
       if (error) throw error;
-
-      console.log('get_team_summary rows:', data ? 1 : 0);
-
-      const payload = Array.isArray(data) ? data[0] : data;
+      const row = Array.isArray(data) ? data[0] : data;
+      // Map DB → UI shape expected by public/js/teams.js
+      const payload = {
+        team_name: row?.team_name ?? row?.team ?? teamName,
+        first_season: row?.first_season ?? row?.first_year ?? null,
+        last_season: row?.last_season ?? row?.last_year ?? null,
+        total_matches: row?.total_matches ?? row?.games ?? 0,
+        win_rate_pct: row?.win_rate_pct ?? (row?.games ? ((row?.wins ?? 0) / row.games * 100).toFixed(1) : 0),
+        highest_score: row?.highest_score ?? 0,
+        biggest_win: row?.biggest_win ?? row?.biggest_margin ?? 0,
+        grand_finals: row?.grand_finals ?? row?.premierships ?? 0,
+        // Leaderboards per club
+        top_disposals: (row?.top_disposals || []).map(p => ({
+          full_name: p.full_name ?? p.player_name ?? `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
+          games_played: p.games_played ?? p.games ?? 0,
+          total: p.total ?? p.value ?? p.disposals ?? 0,
+          per_game: p.per_game ?? p.value_per_game ?? (p.games ? (p.total / p.games).toFixed(1) : '0.0')
+        })),
+        top_goals: (row?.top_goals || []).map(p => ({
+          full_name: p.full_name ?? p.player_name ?? `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
+          games_played: p.games_played ?? p.games ?? 0,
+          total: p.total ?? p.value ?? p.goals ?? 0,
+          per_game: p.per_game ?? p.value_per_game ?? (p.games ? (p.total / p.games).toFixed(1) : '0.0')
+        }))
+      };
       res.setHeader('Cache-Control', 'no-store');
       return res.json(payload);
     }
@@ -42,11 +63,15 @@ export default async function handler(req, res) {
     // ---------------------------------------------------------------------
     const { data, error } = await supabase.rpc('get_teams');
     if (error) throw error;
-
-    console.log('get_teams rows:', data?.length);
-
+    // Map DB → UI for team cards
+    const rows = (data || []).map(r => ({
+      team_name: r.team_name ?? r.team ?? r.club ?? '',
+      first_season: r.first_season ?? r.first_year ?? null,
+      last_season: r.last_season ?? r.last_year ?? null,
+      total_matches: r.total_matches ?? r.games ?? 0
+    }));
     res.setHeader('Cache-Control', 'no-store');
-    return res.json(data);
+    return res.json(rows);
   } catch (err) {
     console.error('Supabase RPC error:', err);
     return res

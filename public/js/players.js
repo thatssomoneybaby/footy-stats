@@ -35,9 +35,10 @@ function renderAlphabet(letters) {
   letters.forEach(letterData => {
     const letterButton = document.createElement('button');
     letterButton.className = 'px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-afl-blue hover:text-white transition-colors font-medium';
-    letterButton.textContent = `${letterData.letter} (${letterData.player_count})`;
+    const cnt = letterData.count ?? letterData.player_count ?? 0;
+    letterButton.textContent = `${letterData.letter} (${cnt})`;
     letterButton.addEventListener('click', () => loadPlayersForLetter(letterData.letter));
-    
+
     alphabetContainer.appendChild(letterButton);
   });
 }
