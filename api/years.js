@@ -1,5 +1,27 @@
 import { supabase as sbClient } from '../db.js';
 
+const ROUND_ORDER = {
+  EF: 101,  // Elimination Final
+  QF: 102,  // Qualifying Final
+  SF: 103,  // Semi Final
+  PF: 104,  // Preliminary Final
+  GF: 105   // Grand Final
+};
+
+function roundSortKey(value) {
+  if (value == null) return 0;
+  const v = String(value).trim().toUpperCase();
+  // Extract first numeric chunk (handles labels like "R1", "Round 12")
+  const m = v.match(/(\d+)/);
+  if (m) {
+    const num = parseInt(m[1], 10);
+    if (!Number.isNaN(num)) return num;
+  }
+  if (ROUND_ORDER[v] != null) return ROUND_ORDER[v];
+  // Unknown labels go to the end
+  return 1000;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -24,6 +46,7 @@ export default async function handler(req, res) {
       if (error) throw error;
       // Map DB shape → UI: { round }
       const rows = (data || []).map(r => ({ round: r.round ?? r.round_number ?? r.label ?? String(r) }));
+      rows.sort((a, b) => roundSortKey(a.round) - roundSortKey(b.round));
       res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=30');
       return res.json(rows);
     }
@@ -32,15 +55,19 @@ export default async function handler(req, res) {
     if (ladder === 'true') {
       const { data, error } = await sbClient.rpc('season_ladder', { p_year: yr });
       if (error) throw error;
-      // Ensure ladder_pos is present; map common aliases
-      const rows = (data || []).map((r, idx) => ({
-        ladder_pos: r.ladder_pos ?? r.position ?? r.rank ?? (idx + 1),
-        team: r.team ?? r.team_name ?? r.club ?? '',
-        wins: r.wins ?? r.w ?? 0,
-        losses: r.losses ?? r.l ?? 0,
-        draws: r.draws ?? r.d ?? 0,
-        percentage: r.percentage ?? r.pct ?? 0
-      }));
+      // Ensure ladder_pos is present; map common aliases, round percentage to 1 decimal place
+      const rows = (data || []).map((r, idx) => {
+        const pctRaw = Number(r.percentage ?? r.pct ?? 0);
+        const pct = Number.isFinite(pctRaw) ? Math.round(pctRaw * 10) / 10 : 0;
+        return {
+          ladder_pos: r.ladder_pos ?? r.position ?? r.rank ?? (idx + 1),
+          team: r.team ?? r.team_name ?? r.club ?? '',
+          wins: r.wins ?? r.w ?? 0,
+          losses: r.losses ?? r.l ?? 0,
+          draws: r.draws ?? r.d ?? 0,
+          percentage: pct
+        };
+      });
       return res.json(rows);
     }
 
@@ -93,12 +120,19 @@ export default async function handler(req, res) {
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
     // Map DB → UI keys for summary tiles (ensure no undefineds)
+    const avgRaw = Number(row?.avg_total_points_per_game ?? row?.avg_game_score ?? 0);
+    const avgScore = Number.isFinite(avgRaw) ? Math.round(avgRaw * 10) / 10 : 0;
+    const highRaw = Number(row?.highest_score ?? row?.highest_team_score ?? 0);
+    const highestScore = Number.isFinite(highRaw) ? Math.round(highRaw) : 0;
+    const marginRaw = Number(row?.biggest_margin ?? 0);
+    const biggestMargin = Number.isFinite(marginRaw) ? Math.round(marginRaw) : 0;
+
     const mapped = {
       season: row?.season ?? yr,
       total_matches: row?.games ?? row?.total_matches ?? row?.total_games ?? 0,
-      avg_game_score: row?.avg_total_points_per_game ?? row?.avg_game_score ?? 0,
-      highest_score: row?.highest_score ?? row?.highest_team_score ?? 0,
-      biggest_margin: row?.biggest_margin ?? 0,
+      avg_game_score: avgScore,
+      highest_score: highestScore,
+      biggest_margin: biggestMargin,
       // Pass through optional fields when present (used by optional tiles)
       premiers: row?.premiers ?? null,
       top_goals_player: row?.top_goals_player ?? null,

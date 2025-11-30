@@ -163,10 +163,23 @@ function renderSeason(summary, ladderRows, rounds) {
     matchesTable.appendChild(honours);
   }
 
-  // round buttons
+  // round buttons (ensure numerical order e.g. R1, R2, …, EF, QF, SF, PF, GF)
   const roundsDiv = document.createElement('div');
   roundsDiv.className = 'flex flex-wrap gap-2 mb-4 px-4';
-  rounds.forEach(r => {
+  const ORDER = { EF: 101, QF: 102, SF: 103, PF: 104, GF: 105 };
+  const key = (val) => {
+    if (val == null) return 0;
+    const v = String(val).trim().toUpperCase();
+    const m = v.match(/(\d+)/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (!Number.isNaN(n)) return n;
+    }
+    if (ORDER[v] != null) return ORDER[v];
+    return 1000;
+  };
+  const sortedRounds = [...rounds].sort((a, b) => key(a) - key(b));
+  sortedRounds.forEach(r => {
     const btn = document.createElement('button');
     btn.textContent = r;
     btn.className =
@@ -204,60 +217,6 @@ function buildSummaryTiles(s) {
     ${tile('Highest Score',  s.highest_score,       'yellow-700', 'yellow')}
     ${tile('Biggest Margin', s.biggest_margin,      'purple-700', 'purple')}
   `;
-
-  /* ----------------------------------------------------------------
-     Optional data‑driven tiles – only include when we truly have data
-  -----------------------------------------------------------------*/
-  const maybeTilesSpec = [
-    {
-      label : 'Premiers',
-      ok    : !!s.premiers,
-      value : s.premiers,
-      team  : s.premiers
-    },
-    {
-      label : 'Top Goals',
-      ok    : hasStat(s.top_goals_player, s.top_goals_total),
-      value : `${s.top_goals_player}<br><span class="text-sm font-medium">${s.top_goals_total}</span>`,
-      team  : s.top_goals_team
-    },
-    {
-      label : 'Top Disposals',
-      ok    : hasStat(s.top_disposals_player, s.top_disposals_total),
-      value : `${s.top_disposals_player}<br><span class="text-sm font-medium">${s.top_disposals_total}</span>`,
-      team  : s.top_disposals_team
-    },
-    {
-      label : 'Top Kicks',
-      ok    : hasStat(s.top_kicks_player, s.top_kicks_total),
-      value : `${s.top_kicks_player}<br><span class="text-sm font-medium">${s.top_kicks_total}</span>`,
-      team  : s.top_kicks_team
-    },
-    {
-      label : 'Top Handballs',
-      ok    : hasStat(s.top_handballs_player, s.top_handballs_total),
-      value : `${s.top_handballs_player}<br><span class="text-sm font-medium">${s.top_handballs_total}</span>`,
-      team  : s.top_handballs_team
-    },
-    {
-      label : 'Top Marks',
-      ok    : hasStat(s.top_marks_player, s.top_marks_total),
-      value : `${s.top_marks_player}<br><span class="text-sm font-medium">${s.top_marks_total}</span>`,
-      team  : s.top_marks_team
-    },
-    {
-      label : 'Top Tackles',
-      ok    : hasStat(s.top_tackles_player, s.top_tackles_total),
-      value : `${s.top_tackles_player}<br><span class="text-sm font-medium">${s.top_tackles_total}</span>`,
-      team  : s.top_tackles_team
-    }
-  ];
-
-  maybeTilesSpec
-    .filter(t => t.ok)
-    .forEach(t => {
-      div.innerHTML += tile(t.label, t.value, 'gray-700', 'gray', t.team);
-    });
 
   return div;
 }
@@ -333,7 +292,7 @@ function buildLadderTable(rows) {
               <td class="py-0.5 px-2 text-right">${r.wins}</td>
               <td class="py-0.5 px-2 text-right">${r.losses}</td>
               <td class="py-0.5 px-2 text-right">${r.draws}</td>
-              <td class="py-0.5 px-2 text-right">${r.percentage}</td>
+              <td class="py-0.5 px-2 text-right">${Number(r.percentage ?? 0).toFixed(1)}</td>
             </tr>`
         )
         .join('')}
