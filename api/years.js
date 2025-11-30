@@ -120,11 +120,33 @@ export default async function handler(req, res) {
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
     // Map DB → UI keys for summary tiles (ensure no undefineds)
-    const avgRaw = Number(row?.avg_total_points_per_game ?? row?.avg_game_score ?? 0);
+    // Robust numeric extraction with generous fallbacks for different SQL aliases
+    const avgRaw = Number(
+      row?.avg_total_points_per_game ??
+      row?.avg_game_score ??
+      row?.avg_points_per_game ??
+      row?.avg_total_points ??
+      0
+    );
     const avgScore = Number.isFinite(avgRaw) ? Math.round(avgRaw * 10) / 10 : 0;
-    const highRaw = Number(row?.highest_score ?? row?.highest_team_score ?? 0);
+    const highRaw = Number(
+      row?.highest_score ??
+      row?.highest_team_score ??
+      row?.highest_game_score ??
+      row?.max_team_score ??
+      row?.max_score ??
+      0
+    );
     const highestScore = Number.isFinite(highRaw) ? Math.round(highRaw) : 0;
-    const marginRaw = Number(row?.biggest_margin ?? 0);
+    const marginRaw = Number(
+      row?.biggest_margin ??
+      row?.biggest_win ??
+      row?.max_margin ??
+      row?.largest_margin ??
+      row?.highest_margin ??
+      row?.max_game_margin ??
+      0
+    );
     const biggestMargin = Number.isFinite(marginRaw) ? Math.round(marginRaw) : 0;
 
     const mapped = {
