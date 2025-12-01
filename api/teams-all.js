@@ -121,59 +121,94 @@ export default async function handler(req, res) {
         return 0;
       })();
 
-      // Derive extra summary stats from mv_season_matches
+      // Derive extra summary stats from mv_season_matches (targeted queries)
       async function deriveFromMatches(team) {
-        // Load all matches involving the team
-        const { data: matches, error: mErr } = await supabase
-          .from('mv_season_matches')
-          .select('home_team, away_team, home_score, away_score, winner, margin, match_date, venue_name, round_number, match_round')
-          .or(`home_team.eq.${team},away_team.eq.${team}`)
-          .limit(50000);
-        let rows = Array.isArray(matches) ? matches : [];
-        if (mErr) {
-          console.error('mv_season_matches query error:', mErr);
-          rows = [];
+        // Highest score: best home_score among home games vs best away_score among away games
+        const [homeHigh, awayHigh] = await Promise.all([
+          supabase
+            .from('mv_season_matches')
+            .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
+            .eq('home_team', team)
+            .order('home_score', { ascending: false })
+            .limit(1),
+          supabase
+            .from('mv_season_matches')
+            .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
+            .eq('away_team', team)
+            .order('away_score', { ascending: false })
+            .limit(1)
+        ]);
+
+        function toYear(row) {
+          if (!row) return null;
+          const s = Number(row.season);
+          if (Number.isFinite(s)) return s;
+          try { return Number(String(row.match_date).slice(0,4)) || null; } catch { return null; }
         }
 
+        const homeRow = (homeHigh.data && homeHigh.data[0]) || null;
+        const awayRow = (awayHigh.data && awayHigh.data[0]) || null;
+        const homeScore = homeRow ? Number(homeRow.home_score ?? 0) : -1;
+        const awayScore = awayRow ? Number(awayRow.away_score ?? 0) : -1;
         let highestScore = 0;
         let highestScoreDetail = null;
+        if (homeScore >= 0 || awayScore >= 0) {
+          const pick = homeScore >= awayScore ? homeRow : awayRow;
+          const teamScore = homeScore >= awayScore ? homeScore : awayScore;
+          const oppScore = homeScore >= awayScore ? Number(pick?.away_score ?? 0) : Number(pick?.home_score ?? 0);
+          const opponent = homeScore >= awayScore ? pick?.away_team : pick?.home_team;
+          highestScore = Number(teamScore) || 0;
+          highestScoreDetail = pick ? {
+            season: toYear(pick),
+            round_number: pick.round_number ?? null,
+            opponent,
+            venue_name: pick.venue_name ?? null,
+            score_for: Number(teamScore) || 0,
+            score_against: Number(oppScore) || 0,
+            margin: Number(pick.margin ?? 0) || 0
+          } : null;
+        }
+
+        // Biggest win: max margin across wins, from home and away sides
+        const [homeWin, awayWin] = await Promise.all([
+          supabase
+            .from('mv_season_matches')
+            .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
+            .eq('winner', team)
+            .eq('home_team', team)
+            .order('margin', { ascending: false })
+            .limit(1),
+          supabase
+            .from('mv_season_matches')
+            .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
+            .eq('winner', team)
+            .eq('away_team', team)
+            .order('margin', { ascending: false })
+            .limit(1)
+        ]);
+
+        const winHome = (homeWin.data && homeWin.data[0]) || null;
+        const winAway = (awayWin.data && awayWin.data[0]) || null;
+        const homeMargin = winHome ? Number(winHome.margin ?? 0) : -1;
+        const awayMargin = winAway ? Number(winAway.margin ?? 0) : -1;
         let biggestWin = 0;
         let biggestWinDetail = null;
-        for (const r of rows) {
-          const teamScore = (r.home_team === team)
-            ? Number(r.home_score ?? 0)
-            : Number(r.away_score ?? 0);
-          if (Number.isFinite(teamScore) && teamScore > highestScore) highestScore = teamScore;
-          if (Number.isFinite(teamScore) && teamScore >= highestScore) {
-            const oppScore = (r.home_team === team) ? Number(r.away_score ?? 0) : Number(r.home_score ?? 0);
-            highestScoreDetail = {
-              season: (() => { try { return Number(String(r.match_date).slice(0,4)) || null; } catch { return null; } })(),
-              round_number: r.round_number ?? r.match_round ?? null,
-              opponent: (r.home_team === team) ? r.away_team : r.home_team,
-              venue_name: r.venue_name ?? null,
-              score_for: teamScore,
-              score_against: Number(oppScore) || 0,
-              margin: Number(r.margin ?? 0) || 0
-            };
-          }
-
-          if (r.winner === team) {
-            const mg = Number(r.margin ?? 0);
-            if (Number.isFinite(mg) && mg >= biggestWin) {
-              biggestWin = mg;
-              const teamScore2 = (r.home_team === team) ? Number(r.home_score ?? 0) : Number(r.away_score ?? 0);
-              const oppScore2 = (r.home_team === team) ? Number(r.away_score ?? 0) : Number(r.home_score ?? 0);
-              biggestWinDetail = {
-                season: (() => { try { return Number(String(r.match_date).slice(0,4)) || null; } catch { return null; } })(),
-                round_number: r.round_number ?? r.match_round ?? null,
-                opponent: (r.home_team === team) ? r.away_team : r.home_team,
-                venue_name: r.venue_name ?? null,
-                score_for: Number(teamScore2) || 0,
-                score_against: Number(oppScore2) || 0,
-                margin: Number(r.margin ?? 0) || 0
-              };
-            }
-          }
+        if (homeMargin >= 0 || awayMargin >= 0) {
+          const pick = homeMargin >= awayMargin ? winHome : winAway;
+          const teamWasHome = pick ? pick.home_team === team : true;
+          const teamScore2 = teamWasHome ? Number(pick?.home_score ?? 0) : Number(pick?.away_score ?? 0);
+          const oppScore2 = teamWasHome ? Number(pick?.away_score ?? 0) : Number(pick?.home_score ?? 0);
+          const opponent2 = teamWasHome ? pick?.away_team : pick?.home_team;
+          biggestWin = Number(pick?.margin ?? 0) || 0;
+          biggestWinDetail = pick ? {
+            season: toYear(pick),
+            round_number: pick.round_number ?? null,
+            opponent: opponent2,
+            venue_name: pick.venue_name ?? null,
+            score_for: Number(teamScore2) || 0,
+            score_against: Number(oppScore2) || 0,
+            margin: Number(pick.margin ?? 0) || 0
+          } : null;
         }
 
         // Canonical premiership count: count mv_season_matches where round_number ILIKE 'GF%' and winner = team
