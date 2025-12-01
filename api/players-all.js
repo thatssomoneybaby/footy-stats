@@ -144,6 +144,7 @@ export default async function handler(req, res) {
       const debut_date = debut ? debut.match_date : null;
       const debut_venue = debut ? (debut.venue_name || null) : null;
       const debut_opponent = debut ? (debut.opponent || null) : null;
+      const debut_round_label = debut ? (debut.match_round || null) : null;
 
       // Merge computed aggregates back into player core object
       const gamesCount = totalGames || (prof.games || 0);
@@ -161,6 +162,7 @@ export default async function handler(req, res) {
       player.debut_date = debut_date;
       player.debut_venue = debut_venue;
       player.debut_opponent = debut_opponent;
+      player.debut_round_label = debut_round_label;
 
       player.avg_disposals = avg1(totals.disposals);
       player.avg_goals     = avg1(totals.goals);

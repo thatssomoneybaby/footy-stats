@@ -135,8 +135,17 @@ export async function getTeamSummary(teamName) {
 
 
 export async function getPlayersAlphabet() {
-  const res = await fetch(`${BASE}/players-all?alphabet=true`);
-  return res.json();
+  // Prefer new consolidated index endpoint that returns counts without caps
+  const res = await fetch(`${BASE}/players-index`);
+  if (!res.ok) {
+    // Fallback to legacy endpoint
+    const res2 = await fetch(`${BASE}/players-all?alphabet=true`);
+    return res2.json();
+  }
+  const data = await res.json();
+  const lc = data.letter_counts || {};
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  return letters.map(L => ({ letter: L, count: Number(lc[L] || 0) }));
 }
 
 export async function getPlayers(letter) {

@@ -130,9 +130,9 @@ function displayPlayerDetails(playerData) {
       .sort((a, b) => new Date(a.match_date) - new Date(b.match_date))[0];
   }
   
-  // Create team/guernsey display
-  let teamGuernseysDisplay = '';
-  if (teamGuernseys.length > 0) {
+  // Create team/guernsey display — prefer API teams_path if present
+  let teamGuernseysDisplay = player.teams_path || '';
+  if (!teamGuernseysDisplay && teamGuernseys.length > 0) {
     const groupedByTeam = {};
     teamGuernseys.forEach(entry => {
       if (!groupedByTeam[entry.player_team]) {
@@ -157,13 +157,20 @@ function displayPlayerDetails(playerData) {
     teamGuernseysDisplay = teamDisplays.join(', ');
   }
 
-  // Format debut information
+  // Format debut information — prefer API-provided fields
   let debutInfo = 'N/A';
-  if (debutGame) {
+  if (player.debut_date) {
+    const debutDate = new Date(player.debut_date).toLocaleDateString('en-AU');
+    const rnd = player.debut_round_label ? ` ${player.debut_round_label}` : '';
+    const opp = player.debut_opponent ? ` ${player.debut_opponent}` : '';
+    const ven = player.debut_venue ? ` @ ${player.debut_venue}` : '';
+    debutInfo = `${debutDate}${rnd}${opp}${ven}`.trim();
+  } else if (debutGame) {
     const debutDate = new Date(debutGame.match_date).toLocaleDateString('en-AU');
-    const opponent = debutGame.player_team === debutGame.match_home_team ? 
-      `vs ${debutGame.match_away_team}` : `@ ${debutGame.match_home_team}`;
-    debutInfo = `${debutDate} ${opponent}`;
+    const rnd = debutGame.match_round ? ` ${debutGame.match_round}` : '';
+    const opp = debutGame.opponent || (debutGame.player_team === debutGame.match_home_team ? ` vs ${debutGame.match_away_team}` : ` @ ${debutGame.match_home_team}`);
+    const ven = debutGame.venue_name ? ` @ ${debutGame.venue_name}` : '';
+    debutInfo = `${debutDate}${rnd}${opp}${ven}`;
   }
 
   // Calculate best single game performances from actual game data
@@ -411,7 +418,7 @@ function renderPlayerGames(games) {
       year: '2-digit'
     }) : '-';
     const opponent = game.opponent ? game.opponent : (game.player_team === game.match_home_team ? `vs ${game.match_away_team}` : `@ ${game.match_home_team}`);
-    const venue = game.venue_name || 'Unknown';
+    const venue = game.venue_name ? game.venue_name : '—';
     const round = game.match_round || '-';
     
     // Build dynamic row based on available stats
