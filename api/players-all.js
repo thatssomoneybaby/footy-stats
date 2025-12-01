@@ -29,9 +29,20 @@ export default async function handler(req, res) {
         supabase.rpc('get_player_games', { p_player_id: pid, p_limit: 50 })
       ]);
 
-      if (profileRsp.error) return res.status(500).json({ error: 'Failed to fetch player profile', details: profileRsp.error.message });
-      const profArr = Array.isArray(profileRsp.data) ? profileRsp.data : (profileRsp.data ? [profileRsp.data] : []);
-      const prof = profArr[0] || null;
+      let prof = null;
+      if (profileRsp.error) {
+        // Fallback to view select if RPC is not resolved yet
+        const { data: profRow, error: profErr } = await supabase
+          .from('mv_player_career_totals')
+          .select('*')
+          .eq('player_id', pid)
+          .single();
+        if (profErr) return res.status(500).json({ error: 'Failed to fetch player profile', details: profileRsp.error.message || profErr.message });
+        prof = profRow;
+      } else {
+        const profArr = Array.isArray(profileRsp.data) ? profileRsp.data : (profileRsp.data ? [profileRsp.data] : []);
+        prof = profArr[0] || null;
+      }
       const [first, ...rest] = (prof.player_name || '').split(' ');
       const player = {
         player_first_name: first || '',
@@ -53,8 +64,26 @@ export default async function handler(req, res) {
         avg_tackles: prof.value_per_game_tackles || (prof.games ? (prof.tackles / prof.games).toFixed(1) : '0.0')
       };
 
-      const seasons = seasonsRsp.error ? [] : (seasonsRsp.data || []);
-      const games = gamesRsp.error ? [] : (gamesRsp.data || []);
+      let seasons = seasonsRsp.error ? [] : (seasonsRsp.data || []);
+      if (seasonsRsp.error) {
+        const { data: sData } = await supabase
+          .from('mv_player_season_totals')
+          .select('*')
+          .eq('player_id', pid)
+          .order('season', { ascending: true });
+        seasons = sData || [];
+      }
+
+      let games = gamesRsp.error ? [] : (gamesRsp.data || []);
+      if (gamesRsp.error) {
+        const { data: gData } = await supabase
+          .from('mv_match_player_stats')
+          .select('*')
+          .eq('player_id', pid)
+          .order('match_date', { ascending: false })
+          .limit(50);
+        games = gData || [];
+      }
 
       // Map games rows to the expected keys used by the UI table
       const allGames = (games || []).map(g => {
