@@ -18,8 +18,43 @@ These endpoints are invoked by code in `public/js/*`.
 - GET `/api/team-matches?team=Team&year=YYYY`
 
 - GET `/api/players-all?alphabet=true` → alphabet index
+  - Response:
+    - `{ "letters": [{ "letter": "A", "count": 387 }, ...] }`
+  - Backed by `get_player_alphabet()` (mv_player_career_totals)
+
 - GET `/api/players-all?letter=A` → players by letter
+  - Response:
+    - `{ "players": [{
+          "player_id": 12790,
+          "player_name": "Jake Aarts",
+          "player_first_name": "Jake",
+          "player_last_name": "Aarts",
+          "teams": ["Richmond"],
+          "first_season": 2020,
+          "last_season": 2022,
+          "games": 42,
+          "goals": 34,
+          "disposals": 407,
+          "marks": 91,
+          "tackles": 100,
+          "afl_fantasy_score": 1804,
+          "supercoach_score": 0
+        }, ...] }`
+  - Backed by `get_players_by_letter(p_letter)` (mv_player_career_totals)
+
 - GET `/api/players-all?playerId=ID` → player details
+  - Response:
+    - `{ "profile": { /* career row from mv_player_career_totals */ },
+         "seasons": [{ /* rows from mv_player_season_totals */ }],
+         "games":   [{ /* rows from mv_match_player_stats */ }] }`
+  - Notes:
+    - Frontend derives `career averages` as totals ÷ games (1 dp) from `profile`.
+    - Frontend derives `opponent` per game as:
+      - `opponent = player_team === match_home_team ? match_away_team : match_home_team`.
+  - Backed by RPCs:
+    - `get_player_profile(p_player_id)` → mv_player_career_totals
+    - `get_player_seasons(p_player_id)` → mv_player_season_totals
+    - `get_player_games(p_player_id, p_limit)` → mv_match_player_stats
 
 - GET `/api/stats-all?type=trophy-room`
 - GET `/api/stats-all?type=hall-of-records`
@@ -57,9 +92,13 @@ RPCs used under the hood
 - Players
   - `get_player_alphabet()` → `mv_player_career_totals`
   - `get_players_by_letter(p_letter)` → `mv_player_career_totals`
-  - `get_player_profile(p_player_id)` → `mv_player_career_totals`
-  - `get_player_seasons(p_player_id)` → `mv_player_season_totals`
-  - `get_player_games(p_player_id, p_limit)` → `mv_match_player_stats`
+  - `get_player_profile(p_player_id integer)` → `mv_player_career_totals`
+  - `get_player_seasons(p_player_id integer)` → `mv_player_season_totals`
+  - `get_player_games(p_player_id integer, p_limit integer)` → `mv_match_player_stats`
+
+Notes
+
+- The legacy `mode=index` path for `/api/players-all` is no longer used by the frontend; alphabet counts now come from `?alphabet=true` via `get_player_alphabet()`.
 
 - Match/H2H
   - `get_match_players(p_match_id)` → `mv_match_player_stats`
