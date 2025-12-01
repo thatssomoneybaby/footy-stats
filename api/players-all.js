@@ -15,10 +15,20 @@ export default async function handler(req, res) {
       const { data: alphabetData, error } = await supabase
         .rpc('get_player_alphabet');
       if (error) return res.status(500).json({ error: 'Failed to fetch player alphabet' });
-      const rows = (alphabetData || []).map(r => ({
+      let rows = (alphabetData || []).map(r => ({
         letter: r.letter ?? r.initial ?? r.first_letter ?? '',
-        count: r.count ?? r.player_count ?? r.total ?? 0,
+        count: Number(r.count ?? r.player_count ?? r.total ?? r.cnt ?? 0) || 0,
       }));
+      // Fallback: if all counts are zero, attempt to compute counts per letter
+      const allZero = rows.length && rows.every(r => !r.count);
+      if (allZero) {
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        const results = await Promise.all(letters.map(async L => {
+          const { data } = await supabase.rpc('get_players_by_letter', { p_letter: L });
+          return { letter: L, count: Array.isArray(data) ? data.length : 0 };
+        }));
+        rows = results;
+      }
       return res.json(rows);
       
     } else if (playerId) {
@@ -58,21 +68,113 @@ export default async function handler(req, res) {
       const games = gamesRsp.error ? [] : (gamesRsp.data || []);
 
       // Map games rows to the expected keys used by the UI table
-      const allGames = games.map(g => ({
+      const allGames = (games || []).map(g => {
+        const match_home_team = g.home_team;
+        const match_away_team = g.away_team;
+        const player_team = g.player_team;
+        const opponent = player_team
+          ? (player_team === match_home_team ? match_away_team : match_home_team)
+          : (match_home_team && match_away_team ? `${match_home_team} vs ${match_away_team}` : null);
+        return {
         match_id: g.match_id,
         match_date: g.match_date,
         match_round: g.match_round || g.round_number,
         venue_name: g.venue_name,
-        match_home_team: g.home_team,
-        match_away_team: g.away_team,
-        player_team: g.player_team,
+        match_home_team,
+        match_away_team,
+        player_team,
+        opponent,
         disposals: g.disposals,
         goals: g.goals,
         kicks: g.kicks,
         handballs: g.handballs,
         marks: g.marks,
         tackles: g.tackles
-      }));
+        };
+      });
+
+      // Derive aggregates from per-game rows
+      const totalGames = allGames.length;
+      const numVal = v => Number(v) || 0;
+      const sum = (key) => allGames.reduce((acc, r) => acc + numVal(r[key]), 0);
+      const max = (key) => allGames.reduce((m, r) => Math.max(m, numVal(r[key])), 0);
+      const avg1 = (s) => totalGames ? +(s / totalGames).toFixed(1) : 0.0;
+
+      const totals = {
+        disposals: sum('disposals'),
+        goals: sum('goals'),
+        kicks: sum('kicks'),
+        handballs: sum('handballs'),
+        marks: sum('marks'),
+        tackles: sum('tackles')
+      };
+
+      const best = {
+        disposals: max('disposals'),
+        goals: max('goals'),
+        kicks: max('kicks'),
+        handballs: max('handballs'),
+        marks: max('marks'),
+        tackles: max('tackles')
+      };
+
+      // Career span and teams path
+      const years = allGames
+        .map(r => { try { return Number(String(r.match_date).slice(0,4)); } catch { return null; } })
+        .filter(n => Number.isFinite(n));
+      const career_start = years.length ? Math.min(...years) : prof.first_season ?? null;
+      const career_end   = years.length ? Math.max(...years) : prof.last_season ?? null;
+      const teamFirstYear = {};
+      allGames.forEach(r => {
+        const y = (function(){ try { return Number(String(r.match_date).slice(0,4)); } catch { return null; } })();
+        if (r.player_team && Number.isFinite(y)) {
+          if (!(r.player_team in teamFirstYear) || y < teamFirstYear[r.player_team]) teamFirstYear[r.player_team] = y;
+        }
+      });
+      const teams_path = Object
+        .entries(teamFirstYear)
+        .sort((a,b) => a[1] - b[1])
+        .map(([team]) => team)
+        .join(' → ');
+
+      // Debut game
+      const debut = allGames
+        .filter(r => r.match_date)
+        .sort((a,b) => new Date(a.match_date) - new Date(b.match_date))[0] || null;
+      const debut_date = debut ? debut.match_date : null;
+      const debut_venue = debut ? (debut.venue_name || null) : null;
+      const debut_opponent = debut ? (debut.opponent || null) : null;
+
+      // Merge computed aggregates back into player core object
+      const gamesCount = totalGames || (prof.games || 0);
+      player.total_games = gamesCount;
+      player.total_disposals = totals.disposals || (prof.disposals || 0);
+      player.total_goals = totals.goals || (prof.goals || 0);
+      player.total_kicks = totals.kicks || (prof.kicks || 0);
+      player.total_handballs = totals.handballs || (prof.handballs || 0);
+      player.total_marks = totals.marks || (prof.marks || 0);
+      player.total_tackles = totals.tackles || (prof.tackles || 0);
+
+      player.first_year = career_start ?? player.first_year ?? null;
+      player.last_year = career_end ?? player.last_year ?? null;
+      player.teams_path = teams_path || null;
+      player.debut_date = debut_date;
+      player.debut_venue = debut_venue;
+      player.debut_opponent = debut_opponent;
+
+      player.avg_disposals = avg1(totals.disposals);
+      player.avg_goals     = avg1(totals.goals);
+      player.avg_kicks     = avg1(totals.kicks);
+      player.avg_handballs = avg1(totals.handballs);
+      player.avg_marks     = avg1(totals.marks);
+      player.avg_tackles   = avg1(totals.tackles);
+
+      player.best_disposals = best.disposals;
+      player.best_goals     = best.goals;
+      player.best_kicks     = best.kicks;
+      player.best_handballs = best.handballs;
+      player.best_marks     = best.marks;
+      player.best_tackles   = best.tackles;
 
       return res.json({ player, seasons, allGames });
       

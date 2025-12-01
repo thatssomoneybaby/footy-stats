@@ -186,12 +186,12 @@ function displayPlayerDetails(playerData) {
   });
 
   // Career stats with better formatting - across the screen
-  const avgDisposals = player.avg_disposals ? parseFloat(player.avg_disposals).toFixed(1) : 'N/A';
-  const avgGoals = player.avg_goals ? parseFloat(player.avg_goals).toFixed(1) : 'N/A';
-  const avgKicks = player.avg_kicks ? parseFloat(player.avg_kicks).toFixed(1) : 'N/A';
-  const avgHandballs = player.avg_handballs ? parseFloat(player.avg_handballs).toFixed(1) : 'N/A';
-  const avgMarks = player.avg_marks ? parseFloat(player.avg_marks).toFixed(1) : 'N/A';
-  const avgTackles = player.avg_tackles ? parseFloat(player.avg_tackles).toFixed(1) : 'N/A';
+  const avgDisposals = player.avg_disposals != null ? Number(player.avg_disposals).toFixed(1) : 'N/A';
+  const avgGoals     = player.avg_goals != null ? Number(player.avg_goals).toFixed(1) : 'N/A';
+  const avgKicks     = player.avg_kicks != null ? Number(player.avg_kicks).toFixed(1) : 'N/A';
+  const avgHandballs = player.avg_handballs != null ? Number(player.avg_handballs).toFixed(1) : 'N/A';
+  const avgMarks     = player.avg_marks != null ? Number(player.avg_marks).toFixed(1) : 'N/A';
+  const avgTackles   = player.avg_tackles != null ? Number(player.avg_tackles).toFixed(1) : 'N/A';
   
   playerSummary.innerHTML = `
     <!-- Basic Info Row -->
@@ -259,27 +259,27 @@ function displayPlayerDetails(playerData) {
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Disposals</div>
-          <div class="text-lg font-bold">${bestStats.disposals !== null ? bestStats.disposals : 'N/A'}</div>
+          <div class="text-lg font-bold">${player.best_disposals ?? (bestStats.disposals !== null ? bestStats.disposals : 'N/A')}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Goals</div>
-          <div class="text-lg font-bold">${bestStats.goals !== null ? bestStats.goals : 'N/A'}</div>
+          <div class="text-lg font-bold">${player.best_goals ?? (bestStats.goals !== null ? bestStats.goals : 'N/A')}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Kicks</div>
-          <div class="text-lg font-bold">${bestStats.kicks !== null ? bestStats.kicks : 'N/A'}</div>
+          <div class="text-lg font-bold">${player.best_kicks ?? (bestStats.kicks !== null ? bestStats.kicks : 'N/A')}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Handballs</div>
-          <div class="text-lg font-bold">${bestStats.handballs !== null ? bestStats.handballs : 'N/A'}</div>
+          <div class="text-lg font-bold">${player.best_handballs ?? (bestStats.handballs !== null ? bestStats.handballs : 'N/A')}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Marks</div>
-          <div class="text-lg font-bold">${bestStats.marks !== null ? bestStats.marks : 'N/A'}</div>
+          <div class="text-lg font-bold">${player.best_marks ?? (bestStats.marks !== null ? bestStats.marks : 'N/A')}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Tackles</div>
-          <div class="text-lg font-bold">${bestStats.tackles !== null ? bestStats.tackles : 'N/A'}</div>
+          <div class="text-lg font-bold">${player.best_tackles ?? (bestStats.tackles !== null ? bestStats.tackles : 'N/A')}</div>
         </div>
       </div>
     </div>
@@ -410,8 +410,7 @@ function renderPlayerGames(games) {
       month: '2-digit',
       year: '2-digit'
     }) : '-';
-    const opponent = game.player_team === game.match_home_team ? 
-      `vs ${game.match_away_team}` : `@ ${game.match_home_team}`;
+    const opponent = game.opponent ? game.opponent : (game.player_team === game.match_home_team ? `vs ${game.match_away_team}` : `@ ${game.match_home_team}`);
     const venue = game.venue_name || 'Unknown';
     const round = game.match_round || '-';
     
