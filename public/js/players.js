@@ -168,7 +168,7 @@ function displayPlayerDetails(playerData) {
   } else if (debutGame) {
     const debutDate = new Date(debutGame.match_date).toLocaleDateString('en-AU');
     const rnd = debutGame.match_round ? ` ${debutGame.match_round}` : '';
-    const opp = debutGame.opponent || (debutGame.player_team === debutGame.match_home_team ? ` vs ${debutGame.match_away_team}` : ` @ ${debutGame.match_home_team}`);
+    const opp = debutGame.opponent ? ` ${debutGame.opponent}` : '';
     const ven = debutGame.venue_name ? ` @ ${debutGame.venue_name}` : '';
     debutInfo = `${debutDate}${rnd}${opp}${ven}`;
   }
@@ -417,8 +417,8 @@ function renderPlayerGames(games) {
       month: '2-digit',
       year: '2-digit'
     }) : '-';
-    const opponent = game.opponent ? game.opponent : (game.player_team === game.match_home_team ? `vs ${game.match_away_team}` : `@ ${game.match_home_team}`);
-    const venue = game.venue_name ? game.venue_name : '—';
+    const opponent = game.opponent || '—';
+    const venue = game.venue_name || '—';
     const round = game.match_round || '-';
     
     // Build dynamic row based on available stats

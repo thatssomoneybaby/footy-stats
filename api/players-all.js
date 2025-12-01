@@ -5,48 +5,41 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { letter, playerId, alphabet } = req.query;
+  const { letter, playerId, alphabet, mode } = req.query;
 
   try {
     // Using shared Supabase client
 
     // Index payload: total_unique_players and letter_counts
-    // Triggered when no playerId/letter provided, or when alphabet=true (back-compat)
-    if ((!playerId && !letter) || alphabet === 'true') {
-      // Total unique players
-      const { count: totalCount, error: totalErr } = await supabase
+    // Triggered when mode=index, or when no playerId/letter provided, or when alphabet=true (back-compat)
+    if (mode === 'index' || (!playerId && !letter) || alphabet === 'true') {
+      // Single fetch, then group in Node to avoid 26 roundtrips
+      const { data, error } = await supabase
         .from('mv_player_totals')
-        .select('player_id', { count: 'exact', head: true });
-      if (totalErr) return res.status(500).json({ error: 'Failed to count players' });
+        .select('player_id,last_name');
+      if (error) return res.status(500).json({ error: 'Failed to load player index' });
 
-      // Counts per A..Z
-      const lettersAZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-      const letter_counts = {};
-      for (const L of lettersAZ) {
-        // Try player_last_name first; fallback to last_name
-        const { count, error } = await supabase
-          .from('mv_player_totals')
-          .select('player_id', { count: 'exact', head: true })
-          .ilike('player_last_name', `${L}%`);
-        if (error) {
-          const { count: c2 } = await supabase
-            .from('mv_player_totals')
-            .select('player_id', { count: 'exact', head: true })
-            .ilike('last_name', `${L}%`);
-          letter_counts[L] = c2 ?? 0;
-        } else {
-          letter_counts[L] = count ?? 0;
-        }
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      const counts = Object.fromEntries(letters.map(l => [l, 0]));
+      for (const row of (data || [])) {
+        const ln = (row.last_name || '').trim();
+        if (!ln) continue;
+        const L = ln[0].toUpperCase();
+        if (counts[L] != null) counts[L] += 1;
       }
+      const letter_counts = letters.map(L => ({ letter: L, count: counts[L] || 0 }));
+      const total_unique_players = (data || []).length;
+
       res.setHeader('Cache-Control', 'no-store');
-      return res.json({ total_unique_players: totalCount ?? 0, letter_counts });
+      return res.json({ total_unique_players, letter_counts });
     
     } else if (playerId) {
       // RPCs only: career summary + seasons + recent games
       const [profileRsp, seasonsRsp, gamesRsp] = await Promise.all([
         supabase.rpc('get_player_profile', { p_player_id: playerId }),
         supabase.rpc('get_player_seasons', { p_player_id: playerId }),
-        supabase.rpc('get_player_games', { p_player_id: playerId, p_limit: 200 })
+        // Return a generous number of rows; UI will paginate/sort client-side
+        supabase.rpc('get_player_games', { p_player_id: playerId, p_limit: 10000 })
       ]);
 
       if (profileRsp.error) return res.status(500).json({ error: 'Failed to fetch player profile', details: profileRsp.error.message });
@@ -132,8 +125,9 @@ export default async function handler(req, res) {
       const years = allGames
         .map(r => { try { return Number(String(r.match_date).slice(0,4)); } catch { return null; } })
         .filter(n => Number.isFinite(n));
-      const career_start = years.length ? Math.min(...years) : prof.first_season ?? null;
-      const career_end   = years.length ? Math.max(...years) : prof.last_season ?? null;
+      // Prefer canonical span from totals profile
+      const career_start = prof.first_season ?? (years.length ? Math.min(...years) : null);
+      const career_end   = prof.last_season ?? (years.length ? Math.max(...years) : null);
       const teamFirstYear = {};
       allGames.forEach(r => {
         const y = (function(){ try { return Number(String(r.match_date).slice(0,4)); } catch { return null; } })();
@@ -157,14 +151,14 @@ export default async function handler(req, res) {
       const debut_round_label = debut ? (debut.match_round || null) : null;
 
       // Merge computed aggregates back into player core object
-      const gamesCount = totalGames || (prof.games || 0);
-      player.total_games = gamesCount;
-      player.total_disposals = totals.disposals || (prof.disposals || 0);
-      player.total_goals = totals.goals || (prof.goals || 0);
-      player.total_kicks = totals.kicks || (prof.kicks || 0);
-      player.total_handballs = totals.handballs || (prof.handballs || 0);
-      player.total_marks = totals.marks || (prof.marks || 0);
-      player.total_tackles = totals.tackles || (prof.tackles || 0);
+      // Prefer canonical totals from mv_player_totals profile
+      player.total_games = prof.games || totalGames || 0;
+      player.total_disposals = (prof.disposals ?? null) != null ? prof.disposals : totals.disposals;
+      player.total_goals = (prof.goals ?? null) != null ? prof.goals : totals.goals;
+      player.total_kicks = (prof.kicks ?? null) != null ? prof.kicks : totals.kicks;
+      player.total_handballs = (prof.handballs ?? null) != null ? prof.handballs : totals.handballs;
+      player.total_marks = (prof.marks ?? null) != null ? prof.marks : totals.marks;
+      player.total_tackles = (prof.tackles ?? null) != null ? prof.tackles : totals.tackles;
 
       player.first_year = career_start ?? player.first_year ?? null;
       player.last_year = career_end ?? player.last_year ?? null;
@@ -174,12 +168,13 @@ export default async function handler(req, res) {
       player.debut_opponent = debut_opponent;
       player.debut_round_label = debut_round_label;
 
-      player.avg_disposals = avg1(totals.disposals);
-      player.avg_goals     = avg1(totals.goals);
-      player.avg_kicks     = avg1(totals.kicks);
-      player.avg_handballs = avg1(totals.handballs);
-      player.avg_marks     = avg1(totals.marks);
-      player.avg_tackles   = avg1(totals.tackles);
+      // Keep avg_* values from profile if present; avoid recomputing from a potentially limited set
+      if (player.avg_disposals == null) player.avg_disposals = avg1(totals.disposals);
+      if (player.avg_goals == null)     player.avg_goals     = avg1(totals.goals);
+      if (player.avg_kicks == null)     player.avg_kicks     = avg1(totals.kicks);
+      if (player.avg_handballs == null) player.avg_handballs = avg1(totals.handballs);
+      if (player.avg_marks == null)     player.avg_marks     = avg1(totals.marks);
+      if (player.avg_tackles == null)   player.avg_tackles   = avg1(totals.tackles);
 
       player.best_disposals = best.disposals;
       player.best_goals     = best.goals;
