@@ -11,31 +11,29 @@ export default async function handler(req, res) {
     // Using shared Supabase client
 
     // Index payload: total_unique_players and letter_counts
-    // Clean branch for mode=index; also used for back-compat triggers
-    if (mode === 'index' || (!playerId && !letter) || alphabet === 'true') {
-      // Avoid fragile projections: select('*') then choose an available name field
-      const { data, error } = await supabase
-        .from('mv_player_totals')
-        .select('*');
-      if (error) {
-        throw error;
-      }
-
+    // Only when explicitly requested via mode=index
+    if (mode === 'index') {
       const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-      const counts = Object.fromEntries(letters.map(l => [l, 0]));
-      for (const row of (data || [])) {
-        const ln = String(
-          (row.player_last_name ?? row.last_name ?? row.canonical_name ?? '')
-        ).trim();
-        if (!ln) continue;
-        const L = ln.charAt(0).toUpperCase();
-        if (counts[L] != null) counts[L] += 1;
+
+      // Total unique players – exact count via HEAD
+      const { count: total_unique_players, error: totalErr } = await supabase
+        .from('mv_player_totals')
+        .select('player_id', { count: 'exact', head: true });
+      if (totalErr) throw totalErr;
+
+      // Per-letter counts using last_name prefix
+      const letter_counts = [];
+      for (const L of letters) {
+        const { count, error } = await supabase
+          .from('mv_player_totals')
+          .select('player_id', { count: 'exact', head: true })
+          .ilike('last_name', `${L}%`);
+        if (error) throw error;
+        letter_counts.push({ letter: L, count: Number(count || 0) });
       }
-      const letter_counts = letters.map(L => ({ letter: L, count: counts[L] || 0 }));
-      const total_unique_players = (data || []).length;
 
       res.setHeader('Cache-Control', 'no-store');
-      return res.json({ total_unique_players, letter_counts });
+      return res.status(200).json({ total_unique_players: Number(total_unique_players || 0), letter_counts });
     
     } else if (playerId) {
       // RPCs only: career summary + seasons + recent games
