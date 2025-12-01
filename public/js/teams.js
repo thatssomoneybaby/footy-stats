@@ -197,23 +197,23 @@ function renderTeamDetails(team, d) {
     : '';
 
   teamSummaryBox.innerHTML = `
-    <div class="bg-blue-50 p-4 rounded-lg" title="Total matches played">
+    <div class="summary-card bg-blue-50 p-4 rounded-lg" title="Total matches played">
       <h4 class="font-semibold text-afl-blue mb-1">Total Matches</h4>
       <p class="text-2xl font-bold text-gray-900">${totalMatches}</p>
     </div>
-    <div class="bg-green-50 p-4 rounded-lg" title="Win percentage">
+    <div class="summary-card bg-green-50 p-4 rounded-lg" title="Win percentage">
       <h4 class="font-semibold text-green-700 mb-1">Win Rate</h4>
       <p class="text-2xl font-bold text-gray-900">${winPctNum.toFixed(1)}%</p>
     </div>
-    <div id="tile-highest-score" class="bg-yellow-50 p-4 rounded-lg">
+    <div id="tile-highest-score" class="summary-card bg-yellow-50 p-4 rounded-lg">
       <h4 class="font-semibold text-yellow-700 mb-1">Highest Score</h4>
       <p class="text-2xl font-bold text-gray-900">${highScore}</p>
     </div>
-    <div id="tile-biggest-win" class="bg-red-50 p-4 rounded-lg">
+    <div id="tile-biggest-win" class="summary-card bg-red-50 p-4 rounded-lg">
       <h4 class="font-semibold text-red-700 mb-1">Biggest Win</h4>
       <p class="text-2xl font-bold text-gray-900">${bigWin} pts</p>
     </div>
-    <div id="tile-premierships" class="bg-purple-50 p-4 rounded-lg">
+    <div id="tile-premierships" class="summary-card bg-purple-50 p-4 rounded-lg">
       <h4 class="font-semibold text-purple-700 mb-1">Premierships</h4>
       <p class="text-2xl font-bold text-gray-900">${premierships}</p>
     </div>
@@ -223,7 +223,9 @@ function renderTeamDetails(team, d) {
   try {
     const premTile = document.getElementById('tile-premierships');
     if (premTile && Array.isArray(premiership_years) && premiership_years.length) {
-      premTile.title = `Premiership years: ${premiership_years.join(', ')}`;
+      const text = `Premiership years:\n${premiership_years.join(', ')}`;
+      premTile.title = text;
+      premTile.dataset.tooltip = text;
     }
 
     const hsTile = document.getElementById('tile-highest-score');
@@ -231,7 +233,9 @@ function renderTeamDetails(team, d) {
       const hs = highest_score_detail;
       const roundLabel = hs.round_number ? `R${hs.round_number}` : 'Round N/A';
       const venuePart = hs.venue_name ? ` (${hs.venue_name})` : '';
-      hsTile.title = `${hs.score_for}–${hs.score_against} v ${hs.opponent} – ${roundLabel}, ${hs.season}${venuePart}`;
+      const text = `Highest score: ${hs.score_for} – ${hs.score_against}\nvs ${hs.opponent}\n${roundLabel}, ${hs.season}${venuePart}`;
+      hsTile.title = text;
+      hsTile.dataset.tooltip = text;
     }
 
     const bwTile = document.getElementById('tile-biggest-win');
@@ -239,7 +243,9 @@ function renderTeamDetails(team, d) {
       const bw = biggest_win_detail;
       const roundLabel = bw.round_number ? `R${bw.round_number}` : 'Round N/A';
       const venuePart = bw.venue_name ? ` (${bw.venue_name})` : '';
-      bwTile.title = `${bw.margin} pts v ${bw.opponent} – ${roundLabel}, ${bw.season}${venuePart}`;
+      const text = `Biggest win: ${bw.margin} pts\n${bw.score_for} – ${bw.score_against} vs ${bw.opponent}\n${roundLabel}, ${bw.season}${venuePart}`;
+      bwTile.title = text;
+      bwTile.dataset.tooltip = text;
     }
   } catch (e) {
     console.warn('Tooltip application error:', e);
