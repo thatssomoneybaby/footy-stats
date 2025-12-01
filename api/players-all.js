@@ -14,26 +14,31 @@ export default async function handler(req, res) {
     // Only when explicitly requested via mode=index
     if (mode === 'index') {
       const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-
-      // Total unique players – exact count via HEAD
-      const { count: total_unique_players, error: totalErr } = await supabase
+      // Fetch minimal columns in one roundtrip, then group in Node
+      const { data, error } = await supabase
         .from('mv_player_totals')
-        .select('player_id', { count: 'exact', head: true });
-      if (totalErr) throw totalErr;
+        .select('player_id,last_name,player_last_name,canonical_name');
+      if (error) throw error;
 
-      // Per-letter counts using last_name prefix
-      const letter_counts = [];
-      for (const L of letters) {
-        const { count, error } = await supabase
-          .from('mv_player_totals')
-          .select('player_id', { count: 'exact', head: true })
-          .ilike('last_name', `${L}%`);
-        if (error) throw error;
-        letter_counts.push({ letter: L, count: Number(count || 0) });
+      const total_unique_players = Array.isArray(data) ? data.length : 0;
+      const countByLetter = Object.fromEntries(letters.map(l => [l, 0]));
+      for (const row of data || []) {
+        const rawLast = row.last_name ?? row.player_last_name ?? null;
+        const lastFromCanonical = (() => {
+          const cn = row.canonical_name ? String(row.canonical_name).trim() : '';
+          if (!cn) return '';
+          const parts = cn.split(/\s+/);
+          return parts.length ? parts[parts.length - 1] : '';
+        })();
+        const base = String((rawLast && String(rawLast).trim()) || lastFromCanonical || '').trim();
+        if (!base) continue;
+        const L = base.charAt(0).toUpperCase();
+        if (countByLetter[L] != null) countByLetter[L] += 1;
       }
 
+      const letter_counts = letters.map(l => ({ letter: l, count: Number(countByLetter[l] || 0) }));
       res.setHeader('Cache-Control', 'no-store');
-      return res.status(200).json({ total_unique_players: Number(total_unique_players || 0), letter_counts });
+      return res.status(200).json({ total_unique_players, letter_counts });
     
     } else if (playerId) {
       // RPCs only: career summary + seasons + recent games
