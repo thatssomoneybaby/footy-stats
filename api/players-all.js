@@ -15,22 +15,23 @@ export default async function handler(req, res) {
     if (mode === 'index') {
       const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
       // Fetch minimal columns in one roundtrip, then group in Node
+      // Use columns we know exist in this codebase (per legacy index): player_last_name or player_name
       const { data, error } = await supabase
         .from('mv_player_totals')
-        .select('player_id,last_name,player_last_name,canonical_name');
+        .select('player_id,player_last_name,player_name');
       if (error) throw error;
 
       const total_unique_players = Array.isArray(data) ? data.length : 0;
       const countByLetter = Object.fromEntries(letters.map(l => [l, 0]));
       for (const row of data || []) {
-        const rawLast = row.last_name ?? row.player_last_name ?? null;
-        const lastFromCanonical = (() => {
-          const cn = row.canonical_name ? String(row.canonical_name).trim() : '';
-          if (!cn) return '';
-          const parts = cn.split(/\s+/);
+        const rawLast = row.player_last_name ?? null;
+        const lastFromPlayerName = (() => {
+          const pn = row.player_name ? String(row.player_name).trim() : '';
+          if (!pn) return '';
+          const parts = pn.split(/\s+/);
           return parts.length ? parts[parts.length - 1] : '';
         })();
-        const base = String((rawLast && String(rawLast).trim()) || lastFromCanonical || '').trim();
+        const base = String((rawLast && String(rawLast).trim()) || lastFromPlayerName || '').trim();
         if (!base) continue;
         const L = base.charAt(0).toUpperCase();
         if (countByLetter[L] != null) countByLetter[L] += 1;
@@ -234,7 +235,11 @@ export default async function handler(req, res) {
       res.status(400).json({ error: 'Missing required parameter' });
     }
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to fetch player data' });
+    console.error('players-all error', {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details
+    });
+    res.status(500).json({ error: 'Failed in players-all', details: error?.message || String(error) });
   }
 }
