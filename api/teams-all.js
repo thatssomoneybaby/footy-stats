@@ -129,11 +129,11 @@ export default async function handler(req, res) {
           .select('home_team, away_team, home_score, away_score, winner, margin, match_date, venue_name, round_number, match_round')
           .or(`home_team.eq.${team},away_team.eq.${team}`)
           .limit(50000);
+        let rows = Array.isArray(matches) ? matches : [];
         if (mErr) {
           console.error('mv_season_matches query error:', mErr);
-          return { highestScore: 0, biggestWin: 0, grandFinals: 0 };
+          rows = [];
         }
-        const rows = Array.isArray(matches) ? matches : [];
 
         let highestScore = 0;
         let highestScoreDetail = null;
@@ -195,13 +195,13 @@ export default async function handler(req, res) {
         try {
           const { data: gfRows, error: gfRowsErr } = await supabase
             .from('mv_season_matches')
-            .select('match_date')
+            .select('season, match_date')
             .eq('winner', team)
             .ilike('round_number', 'GF%')
             .limit(50000);
           if (!gfRowsErr && Array.isArray(gfRows)) {
             const years = gfRows
-              .map(r => Number(String(r.match_date).slice(0,4)))
+              .map(r => Number(r.season ?? Number(String(r.match_date).slice(0,4))))
               .filter(n => Number.isFinite(n));
             premiershipYears = Array.from(new Set(years)).sort((a,b) => a - b);
           }
@@ -224,17 +224,25 @@ export default async function handler(req, res) {
 
       const { highestScore, highestScoreDetail, biggestWin, biggestWinDetail, grandFinals, premiershipYears } = await deriveFromMatches(teamKey);
 
+      const asNum = v => {
+        const n = Number(v); return Number.isFinite(n) ? n : 0;
+      };
+      const pickMax = (...vals) => {
+        const nums = vals.map(asNum).filter(n => Number.isFinite(n));
+        return nums.length ? Math.max(...nums) : 0;
+      };
+
       const payload = {
         team_name: row?.team_name ?? row?.team ?? teamName,
         first_season: row?.first_season ?? row?.first_year ?? null,
         last_season: row?.last_season ?? row?.last_year ?? null,
         total_matches: row?.total_matches ?? row?.games ?? 0,
         win_rate_pct: winRateNum,
-        highest_score: Number.isFinite(Number(row?.highest_score)) ? Number(row.highest_score) : highestScore,
+        highest_score: pickMax(highestScore, row?.highest_score),
         highest_score_detail: highestScoreDetail,
-        biggest_win: Number.isFinite(Number(row?.biggest_win ?? row?.biggest_margin)) ? Number(row?.biggest_win ?? row?.biggest_margin) : biggestWin,
+        biggest_win: pickMax(biggestWin, (row?.biggest_win ?? row?.biggest_margin)),
         biggest_win_detail: biggestWinDetail,
-        grand_finals: Number.isFinite(Number(row?.grand_finals ?? row?.premierships)) ? Number(row?.grand_finals ?? row?.premierships) : grandFinals,
+        grand_finals: pickMax(grandFinals, (row?.grand_finals ?? row?.premierships)),
         premiership_years: premiershipYears,
         // Leaderboards per club
         top_disposals: (row?.top_disposals && row.top_disposals.length ? row.top_disposals : topDisposalsArr).map(p => ({
