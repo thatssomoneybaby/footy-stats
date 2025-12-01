@@ -84,13 +84,17 @@ export default async function handler(req, res) {
           : (match_home_team && match_away_team ? `${match_home_team} vs ${match_away_team}` : null);
         return {
         match_id: g.match_id,
+        season: g.season ?? (function(){ try { return Number(String(g.match_date).slice(0,4)); } catch { return null; } })(),
         match_date: g.match_date,
         match_round: g.match_round || g.round_number,
+        round_label: g.match_round || g.round_number,
         venue_name: g.venue_name,
         match_home_team,
         match_away_team,
         player_team,
+        team: player_team,
         opponent,
+        behinds: g.behinds,
         disposals: g.disposals,
         goals: g.goals,
         kicks: g.kicks,
@@ -156,13 +160,14 @@ export default async function handler(req, res) {
 
       // Merge computed aggregates back into player core object
       // Prefer canonical totals from mv_player_totals profile
+      player.player_id = Number(playerId);
       player.total_games = prof.games || totalGames || 0;
-      player.total_disposals = (prof.disposals ?? null) != null ? prof.disposals : totals.disposals;
-      player.total_goals = (prof.goals ?? null) != null ? prof.goals : totals.goals;
-      player.total_kicks = (prof.kicks ?? null) != null ? prof.kicks : totals.kicks;
-      player.total_handballs = (prof.handballs ?? null) != null ? prof.handballs : totals.handballs;
-      player.total_marks = (prof.marks ?? null) != null ? prof.marks : totals.marks;
-      player.total_tackles = (prof.tackles ?? null) != null ? prof.tackles : totals.tackles;
+      player.total_disposals = (prof.disposals ?? null) != null ? Number(prof.disposals) : totals.disposals;
+      player.total_goals = (prof.goals ?? null) != null ? Number(prof.goals) : totals.goals;
+      player.total_kicks = (prof.kicks ?? null) != null ? Number(prof.kicks) : totals.kicks;
+      player.total_handballs = (prof.handballs ?? null) != null ? Number(prof.handballs) : totals.handballs;
+      player.total_marks = (prof.marks ?? null) != null ? Number(prof.marks) : totals.marks;
+      player.total_tackles = (prof.tackles ?? null) != null ? Number(prof.tackles) : totals.tackles;
 
       player.first_year = career_start ?? player.first_year ?? null;
       player.last_year = career_end ?? player.last_year ?? null;
@@ -172,13 +177,20 @@ export default async function handler(req, res) {
       player.debut_opponent = debut_opponent;
       player.debut_round_label = debut_round_label;
 
-      // Keep avg_* values from profile if present; avoid recomputing from a potentially limited set
-      if (player.avg_disposals == null) player.avg_disposals = avg1(totals.disposals);
-      if (player.avg_goals == null)     player.avg_goals     = avg1(totals.goals);
-      if (player.avg_kicks == null)     player.avg_kicks     = avg1(totals.kicks);
-      if (player.avg_handballs == null) player.avg_handballs = avg1(totals.handballs);
-      if (player.avg_marks == null)     player.avg_marks     = avg1(totals.marks);
-      if (player.avg_tackles == null)   player.avg_tackles   = avg1(totals.tackles);
+      // Keep avg_* values from profile if present; ensure numeric (1 decimal)
+      const round1 = (v) => Number.isFinite(v) ? Math.round(v * 10) / 10 : 0;
+      if (player.avg_disposals == null) player.avg_disposals = round1(avg1(totals.disposals));
+      else player.avg_disposals = round1(Number(player.avg_disposals));
+      if (player.avg_goals == null)     player.avg_goals     = round1(avg1(totals.goals));
+      else player.avg_goals = round1(Number(player.avg_goals));
+      if (player.avg_kicks == null)     player.avg_kicks     = round1(avg1(totals.kicks));
+      else player.avg_kicks = round1(Number(player.avg_kicks));
+      if (player.avg_handballs == null) player.avg_handballs = round1(avg1(totals.handballs));
+      else player.avg_handballs = round1(Number(player.avg_handballs));
+      if (player.avg_marks == null)     player.avg_marks     = round1(avg1(totals.marks));
+      else player.avg_marks = round1(Number(player.avg_marks));
+      if (player.avg_tackles == null)   player.avg_tackles   = round1(avg1(totals.tackles));
+      else player.avg_tackles = round1(Number(player.avg_tackles));
 
       player.best_disposals = best.disposals;
       player.best_goals     = best.goals;
@@ -199,17 +211,18 @@ export default async function handler(req, res) {
         const games = Number(p.games ?? p.total_games ?? 0) || 0;
         const disposals = Number(p.disposals ?? p.total_disposals ?? 0) || 0;
         const goals = Number(p.goals ?? p.total_goals ?? 0) || 0;
+        const r1 = (n) => Math.round(n * 10) / 10;
         return {
-          player_id: p.player_id,
+          player_id: Number(p.player_id),
           player_first_name: p.player_first_name ?? first ?? '',
           player_last_name: p.player_last_name ?? rest.join(' '),
-          first_year: p.first_season ?? p.first_year ?? null,
-          last_year: p.last_season ?? p.last_year ?? null,
+          first_year: Number(p.first_season ?? p.first_year ?? null),
+          last_year: Number(p.last_season ?? p.last_year ?? null),
           total_games: games,
           total_disposals: disposals,
           total_goals: goals,
-          avg_disposals: games ? (disposals / games).toFixed(1) : '0.0',
-          avg_goals: games ? (goals / games).toFixed(1) : '0.0'
+          avg_disposals: games ? r1(disposals / games) : 0.0,
+          avg_goals: games ? r1(goals / games) : 0.0
         };
       });
       return res.json(rows);

@@ -143,7 +143,12 @@ export async function getPlayersAlphabet() {
   const data = await res.json();
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   if (Array.isArray(data.letter_counts)) {
-    const map = Object.fromEntries(data.letter_counts.map(r => [r.letter, r.count]));
+    const map = Object.fromEntries(
+      data.letter_counts.map(r => [
+        r.letter,
+        Number(r.count ?? r.player_count ?? r.unique_players ?? 0)
+      ])
+    );
     return letters.map(L => ({ letter: L, count: Number(map[L] || 0) }));
   }
   // Defensive default
