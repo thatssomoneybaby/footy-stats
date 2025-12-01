@@ -135,12 +135,15 @@ export async function getTeamSummary(teamName) {
 
 
 export async function getPlayersAlphabet() {
-  // Prefer new consolidated index endpoint that returns counts without caps
-  const res = await fetch(`${BASE}/players-index`);
+  // Use consolidated players-all route (no params) for uncapped counts
+  const res = await fetch(`${BASE}/players-all`);
   if (!res.ok) {
-    // Fallback to legacy endpoint
+    // Fallback to the older alphabet path
     const res2 = await fetch(`${BASE}/players-all?alphabet=true`);
-    return res2.json();
+    try {
+      const rows = await res2.json();
+      return Array.isArray(rows) ? rows : [];
+    } catch { return []; }
   }
   const data = await res.json();
   const lc = data.letter_counts || {};

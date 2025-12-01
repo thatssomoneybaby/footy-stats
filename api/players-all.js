@@ -10,27 +10,37 @@ export default async function handler(req, res) {
   try {
     // Using shared Supabase client
 
-    if (alphabet === 'true') {
-      // Players alphabet endpoint → normalize to { letter, count }
-      const { data: alphabetData, error } = await supabase
-        .rpc('get_player_alphabet');
-      if (error) return res.status(500).json({ error: 'Failed to fetch player alphabet' });
-      let rows = (alphabetData || []).map(r => ({
-        letter: r.letter ?? r.initial ?? r.first_letter ?? '',
-        count: Number(r.count ?? r.player_count ?? r.total ?? r.cnt ?? 0) || 0,
-      }));
-      // Fallback: if all counts are zero, attempt to compute counts per letter
-      const allZero = rows.length && rows.every(r => !r.count);
-      if (allZero) {
-        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-        const results = await Promise.all(letters.map(async L => {
-          const { data } = await supabase.rpc('get_players_by_letter', { p_letter: L });
-          return { letter: L, count: Array.isArray(data) ? data.length : 0 };
-        }));
-        rows = results;
+    // Index payload: total_unique_players and letter_counts
+    // Triggered when no playerId/letter provided, or when alphabet=true (back-compat)
+    if ((!playerId && !letter) || alphabet === 'true') {
+      // Total unique players
+      const { count: totalCount, error: totalErr } = await supabase
+        .from('mv_player_totals')
+        .select('player_id', { count: 'exact', head: true });
+      if (totalErr) return res.status(500).json({ error: 'Failed to count players' });
+
+      // Counts per A..Z
+      const lettersAZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      const letter_counts = {};
+      for (const L of lettersAZ) {
+        // Try player_last_name first; fallback to last_name
+        const { count, error } = await supabase
+          .from('mv_player_totals')
+          .select('player_id', { count: 'exact', head: true })
+          .ilike('player_last_name', `${L}%`);
+        if (error) {
+          const { count: c2 } = await supabase
+            .from('mv_player_totals')
+            .select('player_id', { count: 'exact', head: true })
+            .ilike('last_name', `${L}%`);
+          letter_counts[L] = c2 ?? 0;
+        } else {
+          letter_counts[L] = count ?? 0;
+        }
       }
-      return res.json(rows);
-      
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ total_unique_players: totalCount ?? 0, letter_counts });
+    
     } else if (playerId) {
       // RPCs only: career summary + seasons + recent games
       const [profileRsp, seasonsRsp, gamesRsp] = await Promise.all([
