@@ -135,35 +135,19 @@ export async function getTeamSummary(teamName) {
 
 
 export async function getPlayersAlphabet() {
-  // Use consolidated players-all with explicit index mode
   const res = await fetch(`${BASE}/players-all?mode=index`);
   if (!res.ok) {
-    // Fallbacks for back-compat
-    const res2 = await fetch(`${BASE}/players-all`);
-    if (!res2.ok) {
-      const res3 = await fetch(`${BASE}/players-all?alphabet=true`);
-      try {
-        const rows = await res3.json();
-        return Array.isArray(rows) ? rows : [];
-      } catch { return []; }
-    }
-    const data2 = await res2.json();
-    const lc2 = data2.letter_counts || {};
-    const letters2 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    return letters2.map(L => ({ letter: L, count: Number(lc2[L] || 0) }));
+    console.error('Players alphabet API error:', res.status, res.statusText);
+    return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(L => ({ letter: L, count: 0 }));
   }
   const data = await res.json();
-  // Preferred shape: { total_unique_players, letter_counts: [{letter, count}, ...] }
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   if (Array.isArray(data.letter_counts)) {
-    // Ensure full A–Z coverage
     const map = Object.fromEntries(data.letter_counts.map(r => [r.letter, r.count]));
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
     return letters.map(L => ({ letter: L, count: Number(map[L] || 0) }));
   }
-  // Back-compat: object map shape
-  const lc = data.letter_counts || {};
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-  return letters.map(L => ({ letter: L, count: Number(lc[L] || 0) }));
+  // Defensive default
+  return letters.map(L => ({ letter: L, count: 0 }));
 }
 
 export async function getPlayers(letter) {

@@ -11,20 +11,24 @@ export default async function handler(req, res) {
     // Using shared Supabase client
 
     // Index payload: total_unique_players and letter_counts
-    // Triggered when mode=index, or when no playerId/letter provided, or when alphabet=true (back-compat)
+    // Clean branch for mode=index; also used for back-compat triggers
     if (mode === 'index' || (!playerId && !letter) || alphabet === 'true') {
-      // Single fetch, then group in Node to avoid 26 roundtrips
+      // Avoid fragile projections: select('*') then choose an available name field
       const { data, error } = await supabase
         .from('mv_player_totals')
-        .select('player_id,last_name');
-      if (error) return res.status(500).json({ error: 'Failed to load player index' });
+        .select('*');
+      if (error) {
+        throw error;
+      }
 
       const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
       const counts = Object.fromEntries(letters.map(l => [l, 0]));
       for (const row of (data || [])) {
-        const ln = (row.last_name || '').trim();
+        const ln = String(
+          (row.player_last_name ?? row.last_name ?? row.canonical_name ?? '')
+        ).trim();
         if (!ln) continue;
-        const L = ln[0].toUpperCase();
+        const L = ln.charAt(0).toUpperCase();
         if (counts[L] != null) counts[L] += 1;
       }
       const letter_counts = letters.map(L => ({ letter: L, count: counts[L] || 0 }));
