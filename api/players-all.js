@@ -5,55 +5,33 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { letter, playerId, alphabet, mode } = req.query;
+  const { letter, playerId, alphabet } = req.query;
 
   try {
     // Using shared Supabase client
 
-    // Index payload: total_unique_players and letter_counts
-    // Only when explicitly requested via mode=index
-    if (mode === 'index') {
-      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-      // Fetch minimal columns in one roundtrip, then group in Node
-      // Use columns we know exist in this codebase (per legacy index): player_last_name or player_name
-      const { data, error } = await supabase
-        .from('mv_player_totals')
-        .select('player_id,player_last_name,player_name');
-      if (error) throw error;
-
-      const total_unique_players = Array.isArray(data) ? data.length : 0;
-      const countByLetter = Object.fromEntries(letters.map(l => [l, 0]));
-      for (const row of data || []) {
-        const rawLast = row.player_last_name ?? null;
-        const lastFromPlayerName = (() => {
-          const pn = row.player_name ? String(row.player_name).trim() : '';
-          if (!pn) return '';
-          const parts = pn.split(/\s+/);
-          return parts.length ? parts[parts.length - 1] : '';
-        })();
-        const base = String((rawLast && String(rawLast).trim()) || lastFromPlayerName || '').trim();
-        if (!base) continue;
-        const L = base.charAt(0).toUpperCase();
-        if (countByLetter[L] != null) countByLetter[L] += 1;
+    // Alphabet: use RPC get_player_alphabet → { letters: [{letter,count}, ...] }
+    if (alphabet === 'true') {
+      const { data, error } = await supabase.rpc('get_player_alphabet');
+      if (error) {
+        console.error('get_player_alphabet error', error);
+        return res.status(500).json({ error: 'Failed get_player_alphabet', details: error.message });
       }
+      const letters = Array.isArray(data) ? data : [];
+      return res.status(200).json({ letters });
 
-      const letter_counts = letters.map(l => ({ letter: l, count: Number(countByLetter[l] || 0) }));
-      res.setHeader('Cache-Control', 'no-store');
-      return res.status(200).json({ total_unique_players, letter_counts });
-    
     } else if (playerId) {
       // RPCs only: career summary + seasons + recent games
+      const pid = parseInt(playerId, 10);
       const [profileRsp, seasonsRsp, gamesRsp] = await Promise.all([
-        supabase.rpc('get_player_profile', { p_player_id: playerId }),
-        supabase.rpc('get_player_seasons', { p_player_id: playerId }),
-        // Return a generous number of rows; UI will paginate/sort client-side
-        supabase.rpc('get_player_games', { p_player_id: playerId, p_limit: 10000 })
+        supabase.rpc('get_player_profile', { p_player_id: pid }),
+        supabase.rpc('get_player_seasons', { p_player_id: pid }),
+        supabase.rpc('get_player_games', { p_player_id: pid, p_limit: 50 })
       ]);
 
       if (profileRsp.error) return res.status(500).json({ error: 'Failed to fetch player profile', details: profileRsp.error.message });
-      if (!profileRsp.data) return res.status(404).json({ error: 'Player not found' });
-
-      const prof = profileRsp.data;
+      const profArr = Array.isArray(profileRsp.data) ? profileRsp.data : (profileRsp.data ? [profileRsp.data] : []);
+      const prof = profArr[0] || null;
       const [first, ...rest] = (prof.player_name || '').split(' ');
       const player = {
         player_first_name: first || '',
@@ -203,33 +181,14 @@ export default async function handler(req, res) {
       player.best_marks     = best.marks;
       player.best_tackles   = best.tackles;
 
-      return res.json({ player, seasons, allGames });
+      // Return raw contract expected by frontend
+      return res.status(200).json({ profile: prof, seasons, games });
       
     } else if (letter) {
-      // Players by letter - single RPC → map to UI shape
+      // Players by letter - pass through RPC rows for frontend to use
       const { data, error } = await supabase.rpc('get_players_by_letter', { p_letter: letter });
       if (error) return res.status(500).json({ error: 'Failed to fetch players', details: error.message });
-      const rows = (data || []).map(p => {
-        const name = p.player_name || `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim();
-        const [first, ...rest] = name.split(' ');
-        const games = Number(p.games ?? p.total_games ?? 0) || 0;
-        const disposals = Number(p.disposals ?? p.total_disposals ?? 0) || 0;
-        const goals = Number(p.goals ?? p.total_goals ?? 0) || 0;
-        const r1 = (n) => Math.round(n * 10) / 10;
-        return {
-          player_id: Number(p.player_id),
-          player_first_name: p.player_first_name ?? first ?? '',
-          player_last_name: p.player_last_name ?? rest.join(' '),
-          first_year: Number(p.first_season ?? p.first_year ?? null),
-          last_year: Number(p.last_season ?? p.last_year ?? null),
-          total_games: games,
-          total_disposals: disposals,
-          total_goals: goals,
-          avg_disposals: games ? r1(disposals / games) : 0.0,
-          avg_goals: games ? r1(goals / games) : 0.0
-        };
-      });
-      return res.json(rows);
+      return res.status(200).json({ players: data || [] });
       
     } else {
       res.status(400).json({ error: 'Missing required parameter' });

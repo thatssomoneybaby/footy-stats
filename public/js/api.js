@@ -135,33 +135,32 @@ export async function getTeamSummary(teamName) {
 
 
 export async function getPlayersAlphabet() {
-  const res = await fetch(`${BASE}/players-all?mode=index`);
+  const res = await fetch(`${BASE}/players-all?alphabet=true`);
   if (!res.ok) {
     console.error('Players alphabet API error:', res.status, res.statusText);
     return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(L => ({ letter: L, count: 0 }));
   }
   const data = await res.json();
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-  if (Array.isArray(data.letter_counts)) {
-    const map = Object.fromEntries(
-      data.letter_counts.map(r => [
-        r.letter,
-        Number(r.count ?? r.player_count ?? r.unique_players ?? 0)
-      ])
-    );
-    return letters.map(L => ({ letter: L, count: Number(map[L] || 0) }));
-  }
-  // Defensive default
-  return letters.map(L => ({ letter: L, count: 0 }));
+  const rows = data.letters || [];
+  return rows.map(r => ({ letter: r.letter, count: Number(r.count ?? r.player_count ?? r.unique_players ?? 0) }));
 }
 
 export async function getPlayers(letter) {
   const res = await fetch(`${BASE}/players-all?letter=${encodeURIComponent(letter)}`);
-  return res.json();
+  if (!res.ok) {
+    console.error('Players by letter API error:', res.status, res.statusText);
+    return [];
+  }
+  const data = await res.json();
+  return data.players || [];
 }
 
 export async function getPlayerDetails(playerId) {
   const res = await fetch(`${BASE}/players-all?playerId=${encodeURIComponent(playerId)}`);
+  if (!res.ok) {
+    console.error('Player details API error:', res.status, res.statusText);
+    return { profile: null, seasons: [], games: [] };
+  }
   return res.json();
 }
 

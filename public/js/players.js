@@ -62,8 +62,9 @@ async function loadPlayersForLetter(letter) {
   
   try {
     playersGrid.innerHTML = '<p class="text-gray-600 col-span-full text-center">Loading players...</p>';
-    allPlayers = await getPlayers(letter);
-    filteredPlayers = [...allPlayers];
+    const players = await getPlayers(letter);
+    allPlayers = players;
+    filteredPlayers = [...players];
     renderPlayers(filteredPlayers);
   } catch (error) {
     console.error('Error loading players:', error);
@@ -83,18 +84,23 @@ function renderPlayers(players) {
     const playerCard = document.createElement('div');
     playerCard.className = 'p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors';
     
-    const fullName = `${player.player_first_name} ${player.player_last_name}`;
-    const avgDisposals = player.avg_disposals ? parseFloat(player.avg_disposals).toFixed(1) : 'N/A';
-    const avgGoals = player.avg_goals ? parseFloat(player.avg_goals).toFixed(1) : 'N/A';
+    const fullName = player.player_name || `${player.player_first_name ?? ''} ${player.player_last_name ?? ''}`.trim();
+    const games = Number(player.games ?? player.total_games ?? 0) || 0;
+    const disposals = Number(player.disposals ?? player.total_disposals ?? 0) || 0;
+    const goals = Number(player.goals ?? player.total_goals ?? 0) || 0;
+    const avgDisposals = games ? (Math.round((disposals / games) * 10) / 10).toFixed(1) : '0.0';
+    const avgGoals = games ? (Math.round((goals / games) * 10) / 10).toFixed(1) : '0.0';
+    const firstYear = Number(player.first_season ?? player.first_year ?? '') || '';
+    const lastYear = Number(player.last_season ?? player.last_year ?? '') || '';
     
     playerCard.innerHTML = `
       <h3 class="font-semibold text-gray-900 mb-2">${fullName}</h3>
       <div class="text-sm text-gray-600 space-y-1">
-        <p><span class="font-medium">Career:</span> ${player.first_year} - ${player.last_year}</p>
-        <p><span class="font-medium">Games:</span> ${player.total_games}</p>
-        <p><span class="font-medium">Total Disposals:</span> ${player.total_disposals || 0}</p>
+        <p><span class="font-medium">Career:</span> ${firstYear} - ${lastYear}</p>
+        <p><span class="font-medium">Games:</span> ${games}</p>
+        <p><span class="font-medium">Total Disposals:</span> ${disposals}</p>
         <p><span class="font-medium">Avg Disposals:</span> ${avgDisposals}</p>
-        <p><span class="font-medium">Total Goals:</span> ${player.total_goals || 0}</p>
+        <p><span class="font-medium">Total Goals:</span> ${goals}</p>
         <p><span class="font-medium">Avg Goals:</span> ${avgGoals}</p>
       </div>
     `;
@@ -115,11 +121,16 @@ async function showPlayerDetails(playerId) {
 }
 
 function displayPlayerDetails(playerData) {
-  const player = playerData.player;
+  const profile = playerData.profile || {};
+  const seasons = Array.isArray(playerData.seasons) ? playerData.seasons : [];
+  const gamesRaw = Array.isArray(playerData.games) ? playerData.games : [];
   const teamGuernseys = playerData.teamGuernseys || [];
-  const games = playerData.allGames || [];
+  const games = gamesRaw.map(g => ({
+    ...g,
+    opponent: g.player_team === g.match_home_team ? g.match_away_team : g.match_home_team
+  }));
   
-  const fullName = `${player.player_first_name} ${player.player_last_name}`;
+  const fullName = profile.player_name || `${profile.player_first_name ?? ''} ${profile.player_last_name ?? ''}`.trim();
   playerName.textContent = fullName;
   
   // Find debut game (earliest game with data)
@@ -131,7 +142,19 @@ function displayPlayerDetails(playerData) {
   }
   
   // Create team/guernsey display — prefer API teams_path if present
-  let teamGuernseysDisplay = player.teams_path || '';
+  let teamGuernseysDisplay = '';
+  if (!teamGuernseysDisplay && seasons.length > 0) {
+    const groupedByTeam = {};
+    seasons.forEach(entry => {
+      if (!entry.team) return;
+      const y = Number(entry.season);
+      if (!(entry.team in groupedByTeam) || y < groupedByTeam[entry.team]) groupedByTeam[entry.team] = y;
+    });
+    teamGuernseysDisplay = Object.entries(groupedByTeam)
+      .sort((a,b) => a[1] - b[1])
+      .map(([team]) => team)
+      .join(' → ');
+  }
   if (!teamGuernseysDisplay && teamGuernseys.length > 0) {
     const groupedByTeam = {};
     teamGuernseys.forEach(entry => {
@@ -159,11 +182,11 @@ function displayPlayerDetails(playerData) {
 
   // Format debut information — prefer API-provided fields
   let debutInfo = 'N/A';
-  if (player.debut_date) {
-    const debutDate = new Date(player.debut_date).toLocaleDateString('en-AU');
-    const rnd = player.debut_round_label ? ` ${player.debut_round_label}` : '';
-    const opp = player.debut_opponent ? ` ${player.debut_opponent}` : '';
-    const ven = player.debut_venue ? ` @ ${player.debut_venue}` : '';
+  if (profile.debut_date) {
+    const debutDate = new Date(profile.debut_date).toLocaleDateString('en-AU');
+    const rnd = profile.debut_round_label ? ` ${profile.debut_round_label}` : '';
+    const opp = profile.debut_opponent ? ` ${profile.debut_opponent}` : '';
+    const ven = profile.debut_venue ? ` @ ${profile.debut_venue}` : '';
     debutInfo = `${debutDate}${rnd}${opp}${ven}`.trim();
   } else if (debutGame) {
     const debutDate = new Date(debutGame.match_date).toLocaleDateString('en-AU');
@@ -193,12 +216,13 @@ function displayPlayerDetails(playerData) {
   });
 
   // Career stats with better formatting - across the screen
-  const avgDisposals = player.avg_disposals != null ? Number(player.avg_disposals).toFixed(1) : 'N/A';
-  const avgGoals     = player.avg_goals != null ? Number(player.avg_goals).toFixed(1) : 'N/A';
-  const avgKicks     = player.avg_kicks != null ? Number(player.avg_kicks).toFixed(1) : 'N/A';
-  const avgHandballs = player.avg_handballs != null ? Number(player.avg_handballs).toFixed(1) : 'N/A';
-  const avgMarks     = player.avg_marks != null ? Number(player.avg_marks).toFixed(1) : 'N/A';
-  const avgTackles   = player.avg_tackles != null ? Number(player.avg_tackles).toFixed(1) : 'N/A';
+  const gamesCountProfile = Number(profile.games || 0) || 0;
+  const avgDisposals = gamesCountProfile ? (Math.round((Number(profile.disposals||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
+  const avgGoals     = gamesCountProfile ? (Math.round((Number(profile.goals||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
+  const avgKicks     = gamesCountProfile ? (Math.round((Number(profile.kicks||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
+  const avgHandballs = gamesCountProfile ? (Math.round((Number(profile.handballs||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
+  const avgMarks     = gamesCountProfile ? (Math.round((Number(profile.marks||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
+  const avgTackles   = gamesCountProfile ? (Math.round((Number(profile.tackles||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
   
   playerSummary.innerHTML = `
     <!-- Basic Info Row -->
@@ -206,11 +230,11 @@ function displayPlayerDetails(playerData) {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
         <div class="text-center">
           <div class="font-semibold text-afl-blue text-sm">Career Span</div>
-          <div class="text-lg font-bold">${player.first_year} - ${player.last_year}</div>
+          <div class="text-lg font-bold">${profile.first_season || ''} - ${profile.last_season || ''}</div>
         </div>
         <div class="text-center">
           <div class="font-semibold text-afl-blue text-sm">Total Games</div>
-          <div class="text-xl font-bold text-afl-blue">${player.total_games}</div>
+          <div class="text-xl font-bold text-afl-blue">${profile.games || 0}</div>
         </div>
         <div class="text-center">
           <div class="font-semibold text-afl-blue text-sm">Teams</div>
@@ -230,32 +254,32 @@ function displayPlayerDetails(playerData) {
         <div class="text-center p-3 bg-blue-50 rounded-lg">
           <div class="font-semibold text-gray-700 text-sm">Disposals</div>
           <div class="text-xl font-bold text-blue-600">${avgDisposals}</div>
-          <div class="text-xs text-gray-500">Total: ${player.total_disposals || 0}</div>
+          <div class="text-xs text-gray-500">Total: ${profile.disposals || 0}</div>
         </div>
         <div class="text-center p-3 bg-green-50 rounded-lg">
           <div class="font-semibold text-gray-700 text-sm">Goals</div>
           <div class="text-xl font-bold text-green-600">${avgGoals}</div>
-          <div class="text-xs text-gray-500">Total: ${player.total_goals || 0}</div>
+          <div class="text-xs text-gray-500">Total: ${profile.goals || 0}</div>
         </div>
         <div class="text-center p-3 bg-purple-50 rounded-lg">
           <div class="font-semibold text-gray-700 text-sm">Kicks</div>
           <div class="text-xl font-bold text-purple-600">${avgKicks}</div>
-          <div class="text-xs text-gray-500">Total: ${player.total_kicks || 0}</div>
+          <div class="text-xs text-gray-500">Total: ${profile.kicks || 0}</div>
         </div>
         <div class="text-center p-3 bg-orange-50 rounded-lg">
           <div class="font-semibold text-gray-700 text-sm">Handballs</div>
           <div class="text-xl font-bold text-orange-600">${avgHandballs}</div>
-          <div class="text-xs text-gray-500">Total: ${player.total_handballs || 0}</div>
+          <div class="text-xs text-gray-500">Total: ${profile.handballs || 0}</div>
         </div>
         <div class="text-center p-3 bg-yellow-50 rounded-lg">
           <div class="font-semibold text-gray-700 text-sm">Marks</div>
           <div class="text-xl font-bold text-yellow-600">${avgMarks}</div>
-          <div class="text-xs text-gray-500">Total: ${player.total_marks || 0}</div>
+          <div class="text-xs text-gray-500">Total: ${profile.marks || 0}</div>
         </div>
         <div class="text-center p-3 bg-red-50 rounded-lg">
           <div class="font-semibold text-gray-700 text-sm">Tackles</div>
           <div class="text-xl font-bold text-red-600">${avgTackles}</div>
-          <div class="text-xs text-gray-500">Total: ${player.total_tackles || 0}</div>
+          <div class="text-xs text-gray-500">Total: ${profile.tackles || 0}</div>
         </div>
       </div>
     </div>
