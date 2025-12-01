@@ -290,27 +290,27 @@ function displayPlayerDetails(playerData) {
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Disposals</div>
-          <div class="text-lg font-bold">${player.best_disposals ?? (bestStats.disposals !== null ? bestStats.disposals : 'N/A')}</div>
+          <div class="text-lg font-bold">${bestStats.disposals !== null ? bestStats.disposals : 'N/A'}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Goals</div>
-          <div class="text-lg font-bold">${player.best_goals ?? (bestStats.goals !== null ? bestStats.goals : 'N/A')}</div>
+          <div class="text-lg font-bold">${bestStats.goals !== null ? bestStats.goals : 'N/A'}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Kicks</div>
-          <div class="text-lg font-bold">${player.best_kicks ?? (bestStats.kicks !== null ? bestStats.kicks : 'N/A')}</div>
+          <div class="text-lg font-bold">${bestStats.kicks !== null ? bestStats.kicks : 'N/A'}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Handballs</div>
-          <div class="text-lg font-bold">${player.best_handballs ?? (bestStats.handballs !== null ? bestStats.handballs : 'N/A')}</div>
+          <div class="text-lg font-bold">${bestStats.handballs !== null ? bestStats.handballs : 'N/A'}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Marks</div>
-          <div class="text-lg font-bold">${player.best_marks ?? (bestStats.marks !== null ? bestStats.marks : 'N/A')}</div>
+          <div class="text-lg font-bold">${bestStats.marks !== null ? bestStats.marks : 'N/A'}</div>
         </div>
         <div class="text-center p-2 bg-gray-100 rounded">
           <div class="font-semibold text-gray-600 text-sm">Tackles</div>
-          <div class="text-lg font-bold">${player.best_tackles ?? (bestStats.tackles !== null ? bestStats.tackles : 'N/A')}</div>
+          <div class="text-lg font-bold">${bestStats.tackles !== null ? bestStats.tackles : 'N/A'}</div>
         </div>
       </div>
     </div>
