@@ -224,7 +224,7 @@ function renderTeamDetails(team, d) {
     const premTile = document.getElementById('tile-premierships');
     if (premTile && Array.isArray(premiership_years) && premiership_years.length) {
       const text = `Premiership years:\n${premiership_years.join(', ')}`;
-      premTile.title = text;
+      premTile.removeAttribute('title');
       premTile.dataset.tooltip = text;
     }
 
@@ -234,7 +234,7 @@ function renderTeamDetails(team, d) {
       const roundLabel = hs.round_number ? `R${hs.round_number}` : 'Round N/A';
       const venuePart = hs.venue_name ? ` (${hs.venue_name})` : '';
       const text = `Highest score: ${hs.score_for} – ${hs.score_against}\nvs ${hs.opponent}\n${roundLabel}, ${hs.season}${venuePart}`;
-      hsTile.title = text;
+      hsTile.removeAttribute('title');
       hsTile.dataset.tooltip = text;
     }
 
@@ -244,7 +244,7 @@ function renderTeamDetails(team, d) {
       const roundLabel = bw.round_number ? `R${bw.round_number}` : 'Round N/A';
       const venuePart = bw.venue_name ? ` (${bw.venue_name})` : '';
       const text = `Biggest win: ${bw.margin} pts\n${bw.score_for} – ${bw.score_against} vs ${bw.opponent}\n${roundLabel}, ${bw.season}${venuePart}`;
-      bwTile.title = text;
+      bwTile.removeAttribute('title');
       bwTile.dataset.tooltip = text;
     }
   } catch (e) {
