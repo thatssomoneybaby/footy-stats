@@ -155,8 +155,8 @@ export async function getPlayers(letter) {
   return data.players || [];
 }
 
-export async function getPlayerDetails(playerId) {
-  const res = await fetch(`${BASE}/players-all?playerId=${encodeURIComponent(playerId)}`);
+export async function getPlayerDetails(playerId, page = 1) {
+  const res = await fetch(`${BASE}/players-all?playerId=${encodeURIComponent(playerId)}&page=${encodeURIComponent(page)}`);
   if (!res.ok) {
     console.error('Player details API error:', res.status, res.statusText);
     return { profile: null, seasons: [], games: [] };

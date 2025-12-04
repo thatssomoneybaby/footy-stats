@@ -99,7 +99,10 @@
         <div id="player-details" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
           <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
             <div class="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
-              <h2 id="player-name" class="text-2xl font-semibold text-gray-900"></h2>
+              <div>
+                <h2 id="player-name" class="text-2xl font-semibold text-gray-900"></h2>
+                <div id="player-guernseys" class="text-sm text-gray-500 mt-1"></div>
+              </div>
               <button id="close-player-details" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -117,8 +120,12 @@
               <div id="all-games" class="border-t border-gray-200 pt-6">
                 <div class="flex items-center justify-between mb-4">
                   <h3 class="text-xl font-semibold text-gray-900">All Games</h3>
-                  <div class="text-sm text-gray-500" id="games-count">
-                    <!-- Game count will be populated here -->
+                  <div class="flex items-center gap-3">
+                    <div class="text-sm text-gray-500" id="games-count"></div>
+                    <div id="games-pagination" class="flex items-center gap-2">
+                      <button id="prev-games" class="px-3 py-1.5 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:bg-gray-50">Prev 50</button>
+                      <button id="next-games" class="px-3 py-1.5 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:bg-gray-50">Next 50</button>
+                    </div>
                   </div>
                 </div>
                 

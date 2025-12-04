@@ -6,10 +6,14 @@ const playerSearch = document.getElementById('player-search');
 const sortPlayers = document.getElementById('sort-players');
 const playerDetails = document.getElementById('player-details');
 const playerName = document.getElementById('player-name');
+const playerGuernseys = document.getElementById('player-guernseys');
 const playerSummary = document.getElementById('player-summary');
 const gamesList = document.getElementById('games-list');
 const closeDetailsButton = document.getElementById('close-player-details');
 const selectedLetterSpan = document.getElementById('selected-letter');
+const gamesCountElement = document.getElementById('games-count');
+const prevGamesBtn = document.getElementById('prev-games');
+const nextGamesBtn = document.getElementById('next-games');
 
 let currentLetter = null;
 let allPlayers = [];
@@ -17,6 +21,35 @@ let filteredPlayers = [];
 let currentPlayerGames = [];
 let currentSortColumn = null;
 let currentSortDirection = 'desc';
+let currentPlayerId = null;
+let currentPage = 1;
+let currentLimit = 50;
+let currentTotalGames = 0;
+
+function formatGuernseys(guernseyNumbers) {
+  if (!guernseyNumbers || guernseyNumbers.length === 0) return '';
+  const nums = [...guernseyNumbers].map(n => Number(n)).filter(n => Number.isFinite(n));
+  if (nums.length === 0) return '';
+  if (nums.length === 1) return `#${nums[0]}`;
+  // Preserve backend order (assumed chronological: first → last)
+  return `#${nums[0]} → #${nums[nums.length - 1]}`;
+}
+
+function formatDebut(debut) {
+  if (!debut) return 'N/A';
+  try {
+    const date = debut.match_date ? new Date(debut.match_date).toLocaleDateString('en-AU') : '';
+    const round = debut.match_round ? ` R${debut.match_round}` : '';
+    const playerTeam = debut.player_team;
+    const opponent = playerTeam === debut.match_home_team ? debut.match_away_team : debut.match_home_team;
+    const opp = opponent ? ` vs ${opponent}` : '';
+    const venue = debut.venue_name ? ` @ ${debut.venue_name}` : '';
+    const parts = `${date}${round}${opp}${venue}`.trim();
+    return parts || 'N/A';
+  } catch {
+    return 'N/A';
+  }
+}
 
 // Load alphabet on page load
 async function loadAlphabet() {
@@ -112,11 +145,37 @@ function renderPlayers(players) {
 
 async function showPlayerDetails(playerId) {
   try {
-    const playerData = await getPlayerDetails(playerId);
-    displayPlayerDetails(playerData);
+    currentPlayerId = playerId;
+    currentPage = 1;
+    await loadPlayerPage(playerId, currentPage);
   } catch (error) {
     console.error('Error loading player details:', error);
     alert('Error loading player details. Please try again.');
+  }
+}
+
+async function loadPlayerPage(playerId, page = 1) {
+  const data = await getPlayerDetails(playerId, page);
+  currentPage = data.page || page || 1;
+  currentLimit = data.limit || 50;
+  currentTotalGames = (data.profile && (Number(data.profile.games) || 0)) || 0;
+
+  displayPlayerDetails(data);
+
+  const hasPrev = currentPage > 1;
+  const hasNext = currentPage * currentLimit < currentTotalGames;
+  if (prevGamesBtn) prevGamesBtn.disabled = !hasPrev;
+  if (nextGamesBtn) nextGamesBtn.disabled = !hasNext;
+
+  if (prevGamesBtn) {
+    prevGamesBtn.onclick = () => {
+      if (currentPage > 1) loadPlayerPage(currentPlayerId, currentPage - 1);
+    };
+  }
+  if (nextGamesBtn) {
+    nextGamesBtn.onclick = () => {
+      loadPlayerPage(currentPlayerId, currentPage + 1);
+    };
   }
 }
 
@@ -124,6 +183,7 @@ function displayPlayerDetails(playerData) {
   const profile = playerData.profile || {};
   const seasons = Array.isArray(playerData.seasons) ? playerData.seasons : [];
   const gamesRaw = Array.isArray(playerData.games) ? playerData.games : [];
+  const debut = playerData.debut || null;
   const teamGuernseys = playerData.teamGuernseys || [];
   const games = gamesRaw.map(g => ({
     ...g,
@@ -132,15 +192,13 @@ function displayPlayerDetails(playerData) {
   
   const fullName = profile.player_name || `${profile.player_first_name ?? ''} ${profile.player_last_name ?? ''}`.trim();
   playerName.textContent = fullName;
-  
-  // Find debut game (earliest game with data)
-  let debutGame = null;
-  if (games.length > 0) {
-    debutGame = games
-      .filter(game => game.match_date) // Must have a date
-      .sort((a, b) => new Date(a.match_date) - new Date(b.match_date))[0];
+  if (playerGuernseys) {
+    playerGuernseys.textContent = formatGuernseys(profile.guernsey_numbers);
   }
   
+  // Debut info from API
+  const debutInfo = formatDebut(debut);
+
   // Create team/guernsey display — prefer API teams_path if present
   let teamGuernseysDisplay = '';
   if (!teamGuernseysDisplay && seasons.length > 0) {
@@ -178,22 +236,6 @@ function displayPlayerDetails(playerData) {
     });
     
     teamGuernseysDisplay = teamDisplays.join(', ');
-  }
-
-  // Format debut information — prefer API-provided fields
-  let debutInfo = 'N/A';
-  if (profile.debut_date) {
-    const debutDate = new Date(profile.debut_date).toLocaleDateString('en-AU');
-    const rnd = profile.debut_round_label ? ` ${profile.debut_round_label}` : '';
-    const opp = profile.debut_opponent ? ` ${profile.debut_opponent}` : '';
-    const ven = profile.debut_venue ? ` @ ${profile.debut_venue}` : '';
-    debutInfo = `${debutDate}${rnd}${opp}${ven}`.trim();
-  } else if (debutGame) {
-    const debutDate = new Date(debutGame.match_date).toLocaleDateString('en-AU');
-    const rnd = debutGame.match_round ? ` ${debutGame.match_round}` : '';
-    const opp = debutGame.opponent ? ` ${debutGame.opponent}` : '';
-    const ven = debutGame.venue_name ? ` @ ${debutGame.venue_name}` : '';
-    debutInfo = `${debutDate}${rnd}${opp}${ven}`;
   }
 
   // Calculate best single game performances from actual game data
@@ -322,10 +364,14 @@ function displayPlayerDetails(playerData) {
   // Display games and update count
   renderPlayerGames(games);
   
-  // Update games count
-  const gamesCountElement = document.getElementById('games-count');
+  // Update games count: show range and total eg. "1–50 of 173 games"
   if (gamesCountElement) {
-    gamesCountElement.textContent = `${games.length} games`;
+    const total = Number(profile.games || currentTotalGames || games.length) || games.length;
+    const page = currentPage || playerData.page || 1;
+    const limit = currentLimit || playerData.limit || games.length;
+    const start = (page - 1) * limit + 1;
+    const end = Math.min(page * limit, total);
+    gamesCountElement.textContent = `${start}–${end} of ${total} games`;
   }
   
   playerDetails.classList.remove('hidden');
