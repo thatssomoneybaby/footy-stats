@@ -92,9 +92,9 @@ export default async function handler(req, res) {
 
       // Map games rows to the expected keys used by the UI table
       const allGames = (games || []).map(g => {
-        const match_home_team = g.home_team;
-        const match_away_team = g.away_team;
-        const player_team = g.player_team;
+        const match_home_team = g.match_home_team ?? g.home_team ?? null;
+        const match_away_team = g.match_away_team ?? g.away_team ?? null;
+        const player_team = g.player_team ?? g.team ?? null;
         const opponent = player_team
           ? (player_team === match_home_team ? match_away_team : match_home_team)
           : (match_home_team && match_away_team ? `${match_home_team} vs ${match_away_team}` : null);
@@ -170,7 +170,7 @@ export default async function handler(req, res) {
       try {
         const { data: debutRows, error: debutError } = await supabase
           .from('mv_match_player_stats')
-          .select('match_date, match_round, venue_name, home_team, away_team, player_team, match_home_team, match_away_team, match_id')
+          .select('match_date, match_round, venue_name, match_home_team, match_away_team, player_team, match_id')
           .eq('player_id', pid)
           .order('match_date', { ascending: true })
           .order('match_id', { ascending: true })
@@ -182,9 +182,9 @@ export default async function handler(req, res) {
             match_date: d.match_date,
             match_round: d.match_round,
             venue_name: d.venue_name,
-            match_home_team: d.match_home_team || d.home_team || null,
-            match_away_team: d.match_away_team || d.away_team || null,
-            player_team: d.player_team || null
+            match_home_team: d.match_home_team ?? null,
+            match_away_team: d.match_away_team ?? null,
+            player_team: d.player_team ?? null
           };
         }
       } catch (_) {
