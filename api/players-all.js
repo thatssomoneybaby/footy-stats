@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { letter, playerId, alphabet } = req.query;
+  const { letter, playerId, alphabet, page: pageParam } = req.query;
 
   try {
     // Using shared Supabase client
@@ -23,10 +23,14 @@ export default async function handler(req, res) {
     } else if (playerId) {
       // RPCs only: career summary + seasons + recent games
       const pid = parseInt(playerId, 10);
+      const page = Math.max(1, parseInt(pageParam, 10) || 1);
+      const limit = 50;
+      const offset = (page - 1) * limit;
       const [profileRsp, seasonsRsp, gamesRsp] = await Promise.all([
         supabase.rpc('get_player_profile', { p_player_id: pid }),
         supabase.rpc('get_player_seasons', { p_player_id: pid }),
-        supabase.rpc('get_player_games', { p_player_id: pid, p_limit: 50 })
+        // If your RPC supports offset param, pass it; otherwise we fallback below
+        supabase.rpc('get_player_games', { p_player_id: pid, p_limit: limit, p_offset: offset })
       ]);
 
       let prof = null;
@@ -81,7 +85,8 @@ export default async function handler(req, res) {
           .select('*')
           .eq('player_id', pid)
           .order('match_date', { ascending: false })
-          .limit(50);
+          .order('match_id', { ascending: false })
+          .range(offset, offset + limit - 1);
         games = gData || [];
       }
 
@@ -160,13 +165,35 @@ export default async function handler(req, res) {
         .map(([team]) => team)
         .join(' → ');
 
-      // Debut game
-      const debut = allGames
-        .filter(r => r.match_date)
-        .sort((a,b) => new Date(a.match_date) - new Date(b.match_date))[0] || null;
+      // True debut game: fetch independently of pagination (earliest match)
+      let debut = null;
+      try {
+        const { data: debutRows, error: debutError } = await supabase
+          .from('mv_match_player_stats')
+          .select('match_date, match_round, venue_name, home_team, away_team, player_team, match_home_team, match_away_team, match_id')
+          .eq('player_id', pid)
+          .order('match_date', { ascending: true })
+          .order('match_id', { ascending: true })
+          .limit(1);
+        if (!debutError && Array.isArray(debutRows) && debutRows.length > 0) {
+          const d = debutRows[0];
+          // Normalise keys to match frontend expectations
+          debut = {
+            match_date: d.match_date,
+            match_round: d.match_round,
+            venue_name: d.venue_name,
+            match_home_team: d.match_home_team || d.home_team || null,
+            match_away_team: d.match_away_team || d.away_team || null,
+            player_team: d.player_team || null
+          };
+        }
+      } catch (_) {
+        // ignore; debut stays null
+      }
+      // Also expose legacy profile debut fields for compatibility
       const debut_date = debut ? debut.match_date : null;
       const debut_venue = debut ? (debut.venue_name || null) : null;
-      const debut_opponent = debut ? (debut.opponent || null) : null;
+      const debut_opponent = null; // computed client-side from home/away vs player team
       const debut_round_label = debut ? (debut.match_round || null) : null;
 
       // Merge computed aggregates back into player core object
@@ -210,8 +237,8 @@ export default async function handler(req, res) {
       player.best_marks     = best.marks;
       player.best_tackles   = best.tackles;
 
-      // Return raw contract expected by frontend
-      return res.status(200).json({ profile: prof, seasons, games });
+      // Return contract expected by the new frontend
+      return res.status(200).json({ profile: prof, seasons, games: allGames, debut, page, limit });
       
     } else if (letter) {
       // Players by letter - pass through RPC rows for frontend to use

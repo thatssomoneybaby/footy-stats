@@ -26,13 +26,31 @@ let currentPage = 1;
 let currentLimit = 50;
 let currentTotalGames = 0;
 
-function formatGuernseys(guernseyNumbers) {
+function formatGuernseys(guernseyNumbers, seasons = []) {
   if (!guernseyNumbers || guernseyNumbers.length === 0) return '';
-  const nums = [...guernseyNumbers].map(n => Number(n)).filter(n => Number.isFinite(n));
+  const nums = [...guernseyNumbers]
+    .map(n => Number(n))
+    .filter(n => Number.isFinite(n));
   if (nums.length === 0) return '';
-  if (nums.length === 1) return `#${nums[0]}`;
-  // Preserve backend order (assumed chronological: first → last)
-  return `#${nums[0]} → #${nums[nums.length - 1]}`;
+
+  // Derive ordering by earliest season each number appears in (from seasons[])
+  const firstSeasonByNumber = new Map();
+  seasons.forEach(row => {
+    const n = Number(row.guernsey_number);
+    const y = Number(row.season);
+    if (!Number.isFinite(n) || !Number.isFinite(y)) return;
+    if (!firstSeasonByNumber.has(n) || y < firstSeasonByNumber.get(n)) {
+      firstSeasonByNumber.set(n, y);
+    }
+  });
+
+  const ordered = [...nums]
+    .map(n => ({ n, y: firstSeasonByNumber.has(n) ? firstSeasonByNumber.get(n) : Infinity }))
+    .sort((a, b) => (a.y === b.y ? a.n - b.n : a.y - b.y))
+    .map(x => x.n);
+
+  if (ordered.length === 1) return `#${ordered[0]}`;
+  return `#${ordered[0]} → #${ordered[ordered.length - 1]}`;
 }
 
 function formatDebut(debut) {
@@ -193,7 +211,7 @@ function displayPlayerDetails(playerData) {
   const fullName = profile.player_name || `${profile.player_first_name ?? ''} ${profile.player_last_name ?? ''}`.trim();
   playerName.textContent = fullName;
   if (playerGuernseys) {
-    playerGuernseys.textContent = formatGuernseys(profile.guernsey_numbers);
+    playerGuernseys.textContent = formatGuernseys(profile.guernsey_numbers, seasons);
   }
   
   // Debut info from API
