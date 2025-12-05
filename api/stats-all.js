@@ -54,6 +54,102 @@ export default async function handler(req, res) {
 
       res.json(insights);
       
+    } else if (type === 'spotlight') {
+      // Build a random spotlight from a mix of interesting data
+      const picks = ['player_career', 'historic_blowout', 'historic_thriller', 'monster_game'];
+      const choice = picks[Math.floor(Math.random() * picks.length)];
+
+      if (choice === 'player_career') {
+        const { data, error } = await supabase.rpc('trophy_room_career_leaders', { p_limit: 10 });
+        if (error) return res.status(500).json({ error: 'Failed spotlight leaders', details: error.message });
+        const rows = Array.isArray(data) ? data : [];
+        if (!rows.length) return res.json({ type: 'empty' });
+        const pick = rows[Math.floor(Math.random() * Math.min(10, rows.length))];
+        return res.json({
+          type: 'player_career',
+          title: pick.stat_label || 'Career Leader',
+          blurb: `${pick.player_name} (${pick.primary_team || 'AFL'})`,
+          value: Number(pick.value ?? pick.stat_value ?? 0),
+          games: Number(pick.games ?? pick.games_played ?? 0),
+          avg: Number(pick.value_per_game ?? pick.avg_per_game ?? 0),
+          player_id: pick.player_id,
+          team: pick.primary_team || null
+        });
+      }
+
+      if (choice === 'historic_blowout') {
+        const { data, error } = await supabase
+          .from('mv_season_matches')
+          .select('match_id, season, match_round, match_date, home_team, away_team, home_score, away_score, winner, margin, venue_name')
+          .not('winner', 'is', null)
+          .not('margin', 'is', null)
+          .order('margin', { ascending: false })
+          .limit(25);
+        if (error) return res.status(500).json({ error: 'Failed spotlight blowout' });
+        const rows = data || [];
+        if (!rows.length) return res.json({ type: 'empty' });
+        const pick = rows[Math.floor(Math.random() * rows.length)];
+        const loser = pick.winner === pick.home_team ? pick.away_team : pick.home_team;
+        return res.json({
+          type: 'historic_blowout',
+          title: 'Historic Blowout',
+          blurb: `${pick.winner} beat ${loser} by ${Math.abs(Number(pick.margin))} pts (${pick.season}, ${pick.match_round})`,
+          match_id: pick.match_id,
+          season: pick.season,
+          home_team: pick.home_team,
+          away_team: pick.away_team,
+          venue: pick.venue_name,
+          margin: Number(pick.margin) || 0
+        });
+      }
+
+      if (choice === 'historic_thriller') {
+        const { data, error } = await supabase
+          .from('mv_season_matches')
+          .select('match_id, season, match_round, match_date, home_team, away_team, winner, margin, venue_name')
+          .gt('margin', 0)
+          .order('margin', { ascending: true })
+          .limit(25);
+        if (error) return res.status(500).json({ error: 'Failed spotlight thriller' });
+        const rows = data || [];
+        if (!rows.length) return res.json({ type: 'empty' });
+        const pick = rows[Math.floor(Math.random() * rows.length)];
+        const loser = pick.winner === pick.home_team ? pick.away_team : pick.home_team;
+        return res.json({
+          type: 'historic_thriller',
+          title: 'One-Point Thriller',
+          blurb: `${pick.winner} edged ${loser} by ${Math.abs(Number(pick.margin))} pt (${pick.season}, ${pick.match_round})`,
+          match_id: pick.match_id,
+          season: pick.season,
+          home_team: pick.home_team,
+          away_team: pick.away_team,
+          venue: pick.venue_name,
+          margin: Number(pick.margin) || 0
+        });
+      }
+
+      // monster_game: either top disposals or top goals single game
+      const statPick = Math.random() < 0.5 ? 'disposals' : 'goals';
+      const { data: mdata, error: merr } = await supabase
+        .from('mv_match_player_stats')
+        .select(`match_id, match_date, match_round, player_id, player_team, player_name, disposals, goals, venue_name, match_home_team, match_away_team`)
+        .order(statPick, { ascending: false, nullsFirst: false })
+        .limit(25);
+      if (merr) return res.status(500).json({ error: 'Failed spotlight monster game' });
+      const mrows = mdata || [];
+      if (!mrows.length) return res.json({ type: 'empty' });
+      const mpick = mrows[Math.floor(Math.random() * mrows.length)];
+      const val = Number(mpick[statPick]) || 0;
+      return res.json({
+        type: 'monster_game',
+        title: statPick === 'disposals' ? 'Possession Masterclass' : 'Goal Kicking Clinic',
+        blurb: `${mpick.player_name} (${mpick.player_team}) — ${val} ${statPick} (${mpick.match_round})`,
+        player_id: mpick.player_id,
+        match_id: mpick.match_id,
+        stat_key: statPick,
+        value: val
+      });
+
     } else if (type === 'hall-of-records') {
       // Single-season records via RPC over mv_player_season_totals
       const { data, error } = await supabase

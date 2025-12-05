@@ -34,6 +34,9 @@ const upcomingGamesError = document.getElementById('upcoming-games-error');
 const insightsLoading = document.getElementById('insights-loading');
 const insightsContent = document.getElementById('insights-content');
 const insightsError = document.getElementById('insights-error');
+const spotlightBox = document.getElementById('spotlight');
+const spotlightContent = document.getElementById('spotlight-content');
+const refreshSpotlightBtn = document.getElementById('refresh-spotlight');
 
 // Load upcoming games using real getUpcomingGames data
 async function loadUpcomingGames() {
@@ -374,6 +377,7 @@ window.showGameInsights = async function(homeTeam, awayTeam) {
 document.addEventListener('DOMContentLoaded', () => {
   loadUpcomingGames();
   loadInsights();
+  loadSpotlight();
 
   // Live updates after DOM is ready
   import('./live.js').then(({ listenLiveGames }) => {
@@ -382,4 +386,55 @@ document.addEventListener('DOMContentLoaded', () => {
       onRemove: (g) => markFinalScore(g)
     });
   });
+});
+
+// Spotlight
+async function loadSpotlight() {
+  try {
+    const res = await fetch('/api/stats-all?type=spotlight');
+    if (!res.ok) throw new Error('Failed to load spotlight');
+    const data = await res.json();
+    if (!data || data.type === 'empty') return;
+    renderSpotlight(data);
+    spotlightBox?.classList.remove('hidden');
+  } catch (e) {
+    console.warn('Spotlight error:', e.message);
+  }
+}
+
+function renderSpotlight(d) {
+  const linkPlayer = (id, name) => `<a class="text-afl-blue hover:underline" href="players.html?playerId=${encodeURIComponent(id)}">${name}</a>`;
+  const linkTeam = (name) => `<a class="text-afl-blue hover:underline" href="teams.html?teamName=${encodeURIComponent(name)}">${name}</a>`;
+  const wrap = (html) => `<div class="p-4 bg-gray-50 rounded-lg border border-gray-100">${html}</div>`;
+  let html = '';
+  if (d.type === 'player_career') {
+    const val = Number(d.value || 0).toLocaleString();
+    const avg = d.avg != null ? Number(d.avg).toFixed(2) : null;
+    html = wrap(`
+      <div class="text-sm text-gray-500 mb-1">Career Leader</div>
+      <div class="text-xl font-bold text-gray-900 mb-1">${d.title}</div>
+      <div class="text-lg">${linkPlayer(d.player_id, d.blurb)} — <span class="font-semibold">${val}</span>${avg ? ` <span class="text-gray-500">(${avg}/g)</span>` : ''}</div>
+    `);
+  } else if (d.type === 'historic_blowout' || d.type === 'historic_thriller') {
+    html = wrap(`
+      <div class="text-sm text-gray-500 mb-1">${d.type === 'historic_blowout' ? 'Historic Blowout' : 'Nail-biter'}</div>
+      <div class="text-lg">${linkTeam(d.home_team)} vs ${linkTeam(d.away_team)}</div>
+      <div class="text-xl font-bold text-gray-900">${d.blurb}</div>
+      ${d.venue ? `<div class="text-sm text-gray-500">${d.venue}</div>` : ''}
+    `);
+  } else if (d.type === 'monster_game') {
+    html = wrap(`
+      <div class="text-sm text-gray-500 mb-1">Monster Game</div>
+      <div class="text-xl font-bold text-gray-900 mb-1">${d.title}</div>
+      <div class="text-lg">${linkPlayer(d.player_id, 'View player')} — <span class="font-semibold">${d.value} ${d.stat_key}</span></div>
+    `);
+  } else {
+    html = '<div class="text-sm text-gray-500">No spotlight available.</div>';
+  }
+  if (spotlightContent) spotlightContent.innerHTML = html;
+}
+
+refreshSpotlightBtn?.addEventListener('click', (e) => {
+  e.preventDefault();
+  loadSpotlight();
 });
