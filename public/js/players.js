@@ -217,8 +217,22 @@ function displayPlayerDetails(playerData) {
   // Debut info from API
   const debutInfo = formatDebut(debut);
 
-  // Create team/guernsey display — prefer API teams_path if present
+  // Create team/guernsey display — prefer API team_stints if present
   let teamGuernseysDisplay = '';
+  const teamStints = Array.isArray(playerData.team_stints) ? playerData.team_stints : [];
+  if (!teamGuernseysDisplay && teamStints.length > 0) {
+    const fmtNums = (arr) => {
+      if (!arr || arr.length === 0) return 'Jumper data unavailable';
+      if (arr.length === 1) return `#${arr[0]}`;
+      return `#${arr[0]} → #${arr[arr.length - 1]}`;
+    };
+    teamGuernseysDisplay = teamStints.map(s => {
+      const line1 = `<div class="font-medium text-gray-900">${s.team} — ${s.games} games</div>`;
+      const nums = fmtNums(s.guernseys);
+      const line2 = `<div class="text-gray-600">${nums}</div>`;
+      return `<div class="mb-1">${line1}${line2}</div>`;
+    }).join('');
+  }
   if (!teamGuernseysDisplay && seasons.length > 0) {
     const groupedByTeam = {};
     seasons.forEach(entry => {
@@ -296,9 +310,9 @@ function displayPlayerDetails(playerData) {
           <div class="font-semibold text-afl-blue text-sm">Total Games</div>
           <div class="text-xl font-bold text-afl-blue">${profile.games || 0}</div>
         </div>
-        <div class="text-center">
-          <div class="font-semibold text-afl-blue text-sm">Teams</div>
-          <div class="text-sm font-medium">${teamGuernseysDisplay || 'N/A'}</div>
+        <div class="text-left">
+          <div class="font-semibold text-afl-blue text-sm mb-1">Teams & Guernseys</div>
+          <div class="text-sm">${teamGuernseysDisplay || 'N/A'}</div>
         </div>
         <div class="text-center">
           <div class="font-semibold text-afl-blue text-sm">Debut</div>

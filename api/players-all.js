@@ -237,8 +237,43 @@ export default async function handler(req, res) {
       player.best_marks     = best.marks;
       player.best_tackles   = best.tackles;
 
+      // Team-by-team games + guernsey history (ordered by first usage)
+      let team_stints = [];
+      try {
+        const { data: teamRows, error: teamErr } = await supabase
+          .from('mv_match_player_stats')
+          .select('player_team, guernsey_number, match_date')
+          .eq('player_id', pid)
+          .order('match_date', { ascending: true });
+        if (!teamErr && Array.isArray(teamRows)) {
+          const teams = {};
+          for (const r of teamRows) {
+            const t = r.player_team;
+            if (!t) continue;
+            if (!teams[t]) {
+              teams[t] = { team: t, games: 0, guernseys: [], _seen: new Set(), _first: r.match_date };
+            }
+            const entry = teams[t];
+            entry.games += 1;
+            const num = Number(r.guernsey_number);
+            if (Number.isFinite(num) && !entry._seen.has(num)) {
+              entry.guernseys.push(num);
+              entry._seen.add(num);
+            }
+            if (!entry._first || (r.match_date && new Date(r.match_date) < new Date(entry._first))) {
+              entry._first = r.match_date;
+            }
+          }
+          team_stints = Object.values(teams)
+            .sort((a,b) => new Date(a._first) - new Date(b._first))
+            .map(({ team, games, guernseys }) => ({ team, games, guernseys }));
+        }
+      } catch (_) {
+        team_stints = [];
+      }
+
       // Return contract expected by the new frontend
-      return res.status(200).json({ profile: prof, seasons, games: allGames, debut, page, limit });
+      return res.status(200).json({ profile: prof, seasons, games: allGames, debut, team_stints, page, limit });
       
     } else if (letter) {
       // Players by letter - pass through RPC rows for frontend to use
