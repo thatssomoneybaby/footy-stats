@@ -6,7 +6,7 @@ const playerSearch = document.getElementById('player-search');
 const sortPlayers = document.getElementById('sort-players');
 const playerDetails = document.getElementById('player-details');
 const playerName = document.getElementById('player-name');
-const playerGuernseys = document.getElementById('player-guernseys');
+const playerHeaderStints = document.getElementById('player-header-stints');
 const playerSummary = document.getElementById('player-summary');
 const gamesList = document.getElementById('games-list');
 const closeDetailsButton = document.getElementById('close-player-details');
@@ -220,18 +220,18 @@ function displayPlayerDetails(playerData) {
   // Create team/guernsey display — prefer API team_stints if present
   let teamGuernseysDisplay = '';
   const teamStints = Array.isArray(playerData.team_stints) ? playerData.team_stints : [];
-  if (!teamGuernseysDisplay && teamStints.length > 0) {
-    const fmtNums = (arr) => {
-      if (!arr || arr.length === 0) return 'Jumper data unavailable';
-      if (arr.length === 1) return `#${arr[0]}`;
-      return `#${arr[0]} → #${arr[arr.length - 1]}`;
-    };
-    teamGuernseysDisplay = teamStints.map(s => {
-      const line1 = `<div class="font-medium text-gray-900">${s.team} — ${s.games} games</div>`;
-      const nums = fmtNums(s.guernseys);
-      const line2 = `<div class="text-gray-600">${nums}</div>`;
-      return `<div class="mb-1">${line1}${line2}</div>`;
-    }).join('');
+  const fmtGuernseySeq = (arr) => {
+    if (!arr || arr.length === 0) return 'Jumper data unavailable';
+    if (arr.length === 1) return `#${arr[0]}`;
+    return arr.map(n => `#${n}`).join(' → ');
+  };
+  if (playerHeaderStints) {
+    if (teamStints.length > 0) {
+      const headerLines = teamStints.map(s => `${s.team} ${fmtGuernseySeq(s.guernseys)} — ${s.games} games`);
+      playerHeaderStints.innerHTML = headerLines.map(l => `<div>${l}</div>`).join('');
+    } else {
+      playerHeaderStints.textContent = '';
+    }
   }
   if (!teamGuernseysDisplay && seasons.length > 0) {
     const groupedByTeam = {};
@@ -298,6 +298,9 @@ function displayPlayerDetails(playerData) {
   const avgMarks     = gamesCountProfile ? (Math.round((Number(profile.marks||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
   const avgTackles   = gamesCountProfile ? (Math.round((Number(profile.tackles||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
   
+  // Build a simple teams path for the summary tile (no guernsey details)
+  const teamPathSummary = teamStints.length ? teamStints.map(s => s.team).join(' → ') : (Array.isArray(profile.teams) ? profile.teams.join(' → ') : '');
+
   playerSummary.innerHTML = `
     <!-- Basic Info Row -->
     <div class="mb-6">
@@ -310,9 +313,9 @@ function displayPlayerDetails(playerData) {
           <div class="font-semibold text-afl-blue text-sm">Total Games</div>
           <div class="text-xl font-bold text-afl-blue">${profile.games || 0}</div>
         </div>
-        <div class="text-left">
-          <div class="font-semibold text-afl-blue text-sm mb-1">Teams & Guernseys</div>
-          <div class="text-sm">${teamGuernseysDisplay || 'N/A'}</div>
+        <div class="text-center">
+          <div class="font-semibold text-afl-blue text-sm">Teams</div>
+          <div class="text-sm font-medium">${teamPathSummary || 'N/A'}</div>
         </div>
         <div class="text-center">
           <div class="font-semibold text-afl-blue text-sm">Debut</div>
