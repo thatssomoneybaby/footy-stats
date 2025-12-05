@@ -64,7 +64,22 @@ export default async function handler(req, res) {
         if (error) return res.status(500).json({ error: 'Failed spotlight leaders', details: error.message });
         const rows = Array.isArray(data) ? data : [];
         if (!rows.length) return res.json({ type: 'empty' });
-        const pick = rows[Math.floor(Math.random() * Math.min(10, rows.length))];
+
+        // Group by stat_key for variety; pick a random stat, then a random entry within its top 10
+        const byKey = rows.reduce((acc, r) => {
+          const k = String(r.stat_key || 'misc').toLowerCase();
+          (acc[k] ||= []).push(r);
+          return acc;
+        }, {});
+
+        // Prefer some core stats if available; otherwise any key
+        const preferred = ['goals','games','disposals','kicks','marks','tackles','hitouts'];
+        const keys = Object.keys(byKey);
+        const pool = preferred.filter(k => byKey[k]?.length).concat(keys.filter(k => !preferred.includes(k)));
+        const statKey = pool[Math.floor(Math.random() * pool.length)];
+        const group = byKey[statKey] || rows;
+        const pick = group[Math.floor(Math.random() * Math.min(group.length, 10))];
+
         return res.json({
           type: 'player_career',
           title: pick.stat_label || 'Career Leader',
