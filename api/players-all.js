@@ -119,6 +119,35 @@ export default async function handler(req, res) {
         return acc;
       }, { games: 0, disposals: 0, goals: 0, kicks: 0, handballs: 0, marks: 0, tackles: 0, first: null, last: null });
 
+      // Merge season aggregates into profile for missing/zero fields so the UI
+      // can always render career span, totals and averages
+      if (!prof || typeof prof !== 'object') prof = { player_name: '' };
+      const prefer = (a, b) => {
+        const na = Number(a); const nb = Number(b);
+        if (Number.isFinite(na) && na > 0) return na;
+        if (Number.isFinite(nb) && nb > 0) return nb;
+        return 0;
+      };
+      prof.games      = prefer(prof.games,      seasonAgg.games);
+      prof.disposals  = prefer(prof.disposals,  seasonAgg.disposals);
+      prof.goals      = prefer(prof.goals,      seasonAgg.goals);
+      prof.kicks      = prefer(prof.kicks,      seasonAgg.kicks);
+      prof.handballs  = prefer(prof.handballs,  seasonAgg.handballs);
+      prof.marks      = prefer(prof.marks,      seasonAgg.marks);
+      prof.tackles    = prefer(prof.tackles,    seasonAgg.tackles);
+      if (prof.first_season == null) prof.first_season = seasonAgg.first ?? null;
+      if (prof.last_season  == null) prof.last_season  = seasonAgg.last  ?? null;
+      const gForAvg = Number(prof.games) || 0;
+      if (gForAvg > 0) {
+        const to1 = (v) => Math.round((Number(v)||0) / gForAvg * 10) / 10;
+        if (prof.value_per_game_disposals == null) prof.value_per_game_disposals = to1(prof.disposals);
+        if (prof.value_per_game_goals     == null) prof.value_per_game_goals     = to1(prof.goals);
+        if (prof.value_per_game_kicks     == null) prof.value_per_game_kicks     = to1(prof.kicks);
+        if (prof.value_per_game_handballs == null) prof.value_per_game_handballs = to1(prof.handballs);
+        if (prof.value_per_game_marks     == null) prof.value_per_game_marks     = to1(prof.marks);
+        if (prof.value_per_game_tackles   == null) prof.value_per_game_tackles   = to1(prof.tackles);
+      }
+
       let games = gamesRsp.error ? [] : (gamesRsp.data || []);
       if (gamesRsp.error) {
         const { data: gData } = await supabase
