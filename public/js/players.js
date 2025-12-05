@@ -705,4 +705,11 @@ document.addEventListener('DOMContentLoaded', () => {
   loadAlphabet();
   setupSearch();
   setupSort();
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get('playerId');
+    if (pid) {
+      showPlayerDetails(Number(pid));
+    }
+  } catch {}
 });

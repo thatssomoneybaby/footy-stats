@@ -70,10 +70,12 @@ function showStatModal(stat) {
   stat.rows.slice(0, 10).forEach((row, index) => {
     const tr = document.createElement('tr');
     const perGame = row.avg_per_game != null ? Number(row.avg_per_game).toFixed(2) : '-';
+    const playerHref = `players.html?playerId=${encodeURIComponent(row.player_id)}`;
+    const teamHref = row.primary_team ? `teams.html?teamName=${encodeURIComponent(row.primary_team)}` : '#';
     tr.innerHTML = `
       <td class="px-3 py-2">${index + 1}</td>
-      <td class="px-3 py-2">${row.player_name}</td>
-      <td class="px-3 py-2">${row.primary_team || ''}</td>
+      <td class="px-3 py-2"><a href="${playerHref}" class="text-gray-900 hover:underline">${row.player_name}</a></td>
+      <td class="px-3 py-2">${row.primary_team ? `<a href="${teamHref}" class="text-gray-700 hover:underline">${row.primary_team}</a>` : ''}</td>
       <td class="px-3 py-2 text-right">${row.games_played}</td>
       <td class="px-3 py-2 text-right">${row.stat_value}</td>
       <td class="px-3 py-2 text-right">${perGame}</td>
@@ -142,13 +144,16 @@ function renderLandingTable(container, rows) {
       ? `${games} games`
       : (perGame !== '-' ? `${games} games • ${perGame} per game` : `${games} games`);
 
+    const playerHref = `players.html?playerId=${encodeURIComponent(row.player_id)}`;
+    const teamHref = row.primary_team ? `teams.html?teamName=${encodeURIComponent(row.primary_team)}` : '#';
+
     tr.innerHTML = `
       <td class="rank center">${rankHtml}</td>
       <td class="center">
-        <div class="player-name">${row.player_name}</div>
+        <div class="player-name"><a href="${playerHref}" class="text-gray-900 hover:underline">${row.player_name}</a></div>
         <div class="player-meta">${metaLine}</div>
       </td>
-      <td class="team center">${row.primary_team || ''}</td>
+      <td class="team center">${row.primary_team ? `<a href="${teamHref}" class="text-gray-700 hover:underline">${row.primary_team}</a>` : ''}</td>
       <td class="num tabular-nums">
         <div class="total-cell">
           <div class="total-bar"><div class="total-fill" style="width:${pct}%"></div></div>
@@ -158,7 +163,8 @@ function renderLandingTable(container, rows) {
     `;
 
     // Open modal on row click for this stat
-    tr.addEventListener('click', () => {
+    tr.addEventListener('click', (e) => {
+      if (e.target && e.target.closest && e.target.closest('a')) return;
       const statRows = leaders.filter(r => String(r.stat_key || '').toLowerCase() === String(statKey).toLowerCase());
       if (statRows && statRows.length) {
         showStatModal({ stat_key: statKey, stat_label: statRows[0].stat_label, rows: statRows });

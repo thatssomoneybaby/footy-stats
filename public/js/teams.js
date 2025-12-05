@@ -63,6 +63,17 @@ const seasonMatches = {};   // { [season]: MatchRow[] }
 /* ------------------------------------------------------------------ */
 loadTeams();
 
+// Support deep-linking via ?teamName=Essendon
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const team = params.get('teamName');
+    if (team) {
+      loadTeamDetails(team);
+    }
+  } catch {}
+});
+
 backBtn.addEventListener('click', () => {
   teamDetailsBox.classList.add('hidden');
   document.querySelector('.max-w-7xl').children[0].style.display = 'block';
