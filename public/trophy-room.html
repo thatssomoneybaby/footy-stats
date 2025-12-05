@@ -53,6 +53,20 @@
     .player-name { font-weight: 400; white-space: normal; }
     .player-meta { font-size: 0.75rem; color: #6b7280; }
     .leader-card td.team { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Visual accents and medals */
+    .rank { width: 2rem; }
+    .rank .medal { font-size: 1rem; }
+    .rank .num-rank { color: #475569; font-weight: 600; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .total-cell { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
+    .total-bar { position: relative; flex: 1 1 auto; height: 6px; background: #e5e7eb; border-radius: 9999px; max-width: 120px; }
+    .total-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #3b82f6; border-radius: 9999px; }
+    .leader-card[data-stat="goals"] .total-fill { background: #ef4444; }
+    .leader-card[data-stat="games"] .total-fill { background: #64748b; }
+    .leader-card[data-stat="disposals"] .total-fill { background: #3b82f6; }
+    /* Row visuals */
+    .leader-card tbody tr:hover { background: #f8fafc; cursor: pointer; }
+    .leader-card tbody tr:nth-child(even) { background: #fafafa; }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -104,7 +118,7 @@
           <h2 class="text-xl font-semibold text-gray-900 mb-4">All-Time Leaders</h2>
           <div class="landing-grid">
             <!-- Goals card -->
-            <section class="leader-card" id="landing-goals">
+            <section class="leader-card" id="landing-goals" data-stat="goals">
               <h3 class="text-lg font-semibold text-gray-900 mb-3">Top 10 Career Goals</h3>
               <div class="table-wrap">
                 <table>
@@ -125,7 +139,7 @@
             </section>
 
             <!-- Games card -->
-            <section class="leader-card" id="landing-games">
+            <section class="leader-card" id="landing-games" data-stat="games">
               <h3 class="text-lg font-semibold text-gray-900 mb-3">Top 10 Career Games</h3>
               <div class="table-wrap">
                 <table>
@@ -146,7 +160,7 @@
             </section>
 
             <!-- Disposals card -->
-            <section class="leader-card" id="landing-disposals">
+            <section class="leader-card" id="landing-disposals" data-stat="disposals">
               <h3 class="text-lg font-semibold text-gray-900 mb-3">Top 10 Career Disposals</h3>
               <div class="table-wrap">
                 <table>

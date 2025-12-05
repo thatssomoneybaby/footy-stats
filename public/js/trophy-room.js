@@ -119,19 +119,48 @@ function renderLandingTable(container, rows) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  const max = rows.length ? Number(rows[0].stat_value) || 0 : 0;
+  const card = container.closest('.leader-card');
+  const statKey = card?.dataset?.stat || '';
+
   rows.slice(0, 10).forEach((row, index) => {
     const tr = document.createElement('tr');
     const perGame = row.avg_per_game != null ? Number(row.avg_per_game).toFixed(2) : '-';
     const games = row.games_played != null ? row.games_played : '-';
+
+    // Rank cell with medals for top 3
+    let rankHtml = `<span class="num-rank">${index + 1}</span>`;
+    if (index === 0) rankHtml = '<span class="medal">🥇</span>';
+    else if (index === 1) rankHtml = '<span class="medal">🥈</span>';
+    else if (index === 2) rankHtml = '<span class="medal">🥉</span>';
+
+    // Proportional bar for total
+    const total = Number(row.stat_value) || 0;
+    const pct = max > 0 ? Math.max(0, Math.min(100, Math.round((total / max) * 100))) : 0;
+
     tr.innerHTML = `
-      <td>${index + 1}</td>
+      <td class="rank">${rankHtml}</td>
       <td>
         <div class="player-name">${row.player_name}</div>
         <div class="player-meta">${games} games • ${perGame} per game</div>
       </td>
-      <td>${row.primary_team || ''}</td>
-      <td class="num">${row.stat_value}</td>
+      <td class="team">${row.primary_team || ''}</td>
+      <td class="num tabular-nums">
+        <div class="total-cell">
+          <div class="total-bar"><div class="total-fill" style="width:${pct}%"></div></div>
+          <div>${total.toLocaleString()}</div>
+        </div>
+      </td>
     `;
+
+    // Open modal on row click for this stat
+    tr.addEventListener('click', () => {
+      const statRows = leaders.filter(r => String(r.stat_key || '').toLowerCase() === String(statKey).toLowerCase());
+      if (statRows && statRows.length) {
+        showStatModal({ stat_key: statKey, stat_label: statRows[0].stat_label, rows: statRows });
+      }
+    });
+
     tbody.appendChild(tr);
   });
 }
