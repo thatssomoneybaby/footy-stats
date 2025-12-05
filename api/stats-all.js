@@ -11,45 +11,15 @@ export default async function handler(req, res) {
     // Using shared Supabase client
 
     if (type === 'trophy-room') {
-      // Career leaders via RPC over mv_player_career_totals
+      // Career leaders via single RPC. Pass through and standardize shape.
       const { data, error } = await supabase
         .rpc('trophy_room_career_leaders', { p_limit: 10 });
-      if (error) return res.status(500).json({ error: 'Failed to load trophy leaders' });
+      if (error) return res.status(500).json({ error: 'Failed to load trophy room leaders', details: error.message });
 
-      // Map only the three headline stats used by the UI
-      const wanted = {
-        goals:      { name: 'Total Goals',      icon: '⚽', category: 'Scoring' },
-        disposals:  { name: 'Total Disposals',  icon: '🎯', category: 'Possession' },
-        tackles:    { name: 'Total Tackles',    icon: '💪', category: 'Defence' }
-      };
-
-      const byStat = (data || []).reduce((acc, r) => {
-        const key = String(r.stat_key || '').toLowerCase();
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(r);
-        return acc;
-      }, {});
-
-      const trophies = Object.entries(wanted).map(([key, meta]) => {
-        const rows = (byStat[key] || []).sort((a,b) => Number(b.value||0) - Number(a.value||0));
-        const top = rows[0];
-        if (!top) return null;
-        const [first, ...rest] = (top.player_name || '').split(' ');
-        return {
-          name: meta.name,
-          icon: meta.icon,
-          category: meta.category,
-          player: {
-            player_first_name: first || '',
-            player_last_name: rest.join(' '),
-            player_id: top.player_id,
-            stat_value: Number(top.value || 0),
-            games_played: Number(top.games || 0)
-          }
-        };
-      }).filter(Boolean);
-
-      res.json(trophies);
+      // Expect RPC rows to already include: category, stat_key, stat_label, player_id,
+      // player_name, primary_team, games_played, stat_value, avg_per_game.
+      const leaders = Array.isArray(data) ? data : [];
+      return res.json({ leaders });
       
     } else if (type === 'insights') {
       // Insights - most recent game info

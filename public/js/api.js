@@ -166,7 +166,12 @@ export async function getPlayerDetails(playerId, page = 1) {
 
 export async function getTrophyRoom() {
   const res = await fetch(`${BASE}/stats-all?type=trophy-room`);
-  return res.json();
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`Failed to load trophy room leaders (${res.status}): ${txt}`);
+  }
+  const data = await res.json();
+  return data.leaders || [];
 }
 
 export async function getHallOfRecords() {
