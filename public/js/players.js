@@ -210,9 +210,7 @@ function displayPlayerDetails(playerData) {
   
   const fullName = profile.player_name || `${profile.player_first_name ?? ''} ${profile.player_last_name ?? ''}`.trim();
   playerName.textContent = fullName;
-  if (playerGuernseys) {
-    playerGuernseys.textContent = formatGuernseys(profile.guernsey_numbers, seasons);
-  }
+  // Header guernseys moved to team stints block; no standalone guernsey element here
   
   // Debut info from API
   const debutInfo = formatDebut(debut);
