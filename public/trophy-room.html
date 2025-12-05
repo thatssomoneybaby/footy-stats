@@ -38,10 +38,7 @@
     }
     .leader-card th,
     .leader-card td {
-      padding: 0.4rem 0.5rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      padding: 0.6rem 0.5rem;
       border-bottom: 1px solid #f1f5f9;
     }
     .leader-card th {
@@ -53,8 +50,9 @@
     .leader-card th.num {
       text-align: right;
     }
-    .player-name { font-weight: 500; }
+    .player-name { font-weight: 400; white-space: normal; }
     .player-meta { font-size: 0.75rem; color: #6b7280; }
+    .leader-card td.team { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -122,7 +120,7 @@
                 </table>
               </div>
               <div class="mt-3 text-right">
-                <button class="text-afl-blue hover:underline view-top10" data-stat="goals">View full Top 10</button>
+                <button class="text-afl-blue hover:underline view-top10" data-stat="goals">View detailed stats</button>
               </div>
             </section>
 
@@ -143,7 +141,7 @@
                 </table>
               </div>
               <div class="mt-3 text-right">
-                <button class="text-afl-blue hover:underline view-top10" data-stat="games">View full Top 10</button>
+                <button class="text-afl-blue hover:underline view-top10" data-stat="games">View detailed stats</button>
               </div>
             </section>
 
@@ -164,7 +162,7 @@
                 </table>
               </div>
               <div class="mt-3 text-right">
-                <button class="text-afl-blue hover:underline view-top10" data-stat="disposals">View full Top 10</button>
+                <button class="text-afl-blue hover:underline view-top10" data-stat="disposals">View detailed stats</button>
               </div>
             </section>
           </div>
