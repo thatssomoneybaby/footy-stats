@@ -16,6 +16,54 @@
       }
     }
   </script>
+  <style>
+    /* Trophy Room landing grid and cards */
+    .landing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+    .leader-card {
+      background: #fff;
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+      border: 1px solid #e5e7eb;
+    }
+    .leader-card table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .leader-card th, .leader-card td {
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .leader-card th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 600;
+    }
+    .leader-card td.num, .leader-card th.num {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .leader-card td.player, .leader-card td.team {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* Mobile: hide games & per-game; show on lg */
+    .leader-card th.games, .leader-card td.games,
+    .leader-card th.per-game, .leader-card td.per-game { display: none; }
+    @media (min-width: 1024px) {
+      .leader-card th.games, .leader-card td.games,
+      .leader-card th.per-game, .leader-card td.per-game { display: table-cell; }
+    }
+    /* Optional: cap table height */
+    .leader-card .table-wrap { max-height: 360px; overflow-y: auto; }
+  </style>
 </head>
 <body class="bg-gray-50">
   <!-- Mobile menu button -->
@@ -62,68 +110,77 @@
     <main class="p-6">
       <div class="max-w-7xl mx-auto">
         <!-- Landing view: three headline Top 10 lists -->
-        <section id="trophy-landing" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <section id="trophy-landing" class="mb-6">
           <h2 class="text-xl font-semibold text-gray-900 mb-4">All-Time Leaders</h2>
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Goals -->
-            <div class="landing-block" id="landing-goals">
+          <div class="landing-grid">
+            <!-- Goals card -->
+            <section class="leader-card" id="landing-goals">
               <h3 class="text-lg font-semibold text-gray-900 mb-3">Top 10 Career Goals</h3>
-              <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
-                  <thead class="bg-gray-50 text-gray-600">
+              <div class="table-wrap">
+                <table>
+                  <thead>
                     <tr>
-                      <th class="px-3 py-2 text-left">#</th>
-                      <th class="px-3 py-2 text-left">Player</th>
-                      <th class="px-3 py-2 text-left">Team</th>
-                      <th class="px-3 py-2 text-right">Games</th>
-                      <th class="px-3 py-2 text-right">Total</th>
-                      <th class="px-3 py-2 text-right">Per Game</th>
+                      <th>#</th>
+                      <th>Player</th>
+                      <th>Team</th>
+                      <th class="games num">Games</th>
+                      <th class="num">Total</th>
+                      <th class="per-game num">Per Game</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
                 </table>
               </div>
-            </div>
+              <div class="mt-3 text-right">
+                <button class="text-afl-blue hover:underline view-top10" data-stat="goals">View full Top 10</button>
+              </div>
+            </section>
 
-            <!-- Games -->
-            <div class="landing-block" id="landing-games">
+            <!-- Games card -->
+            <section class="leader-card" id="landing-games">
               <h3 class="text-lg font-semibold text-gray-900 mb-3">Top 10 Career Games</h3>
-              <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
-                  <thead class="bg-gray-50 text-gray-600">
+              <div class="table-wrap">
+                <table>
+                  <thead>
                     <tr>
-                      <th class="px-3 py-2 text-left">#</th>
-                      <th class="px-3 py-2 text-left">Player</th>
-                      <th class="px-3 py-2 text-left">Team</th>
-                      <th class="px-3 py-2 text-right">Games</th>
-                      <th class="px-3 py-2 text-right">Total</th>
-                      <th class="px-3 py-2 text-right">Per Game</th>
+                      <th>#</th>
+                      <th>Player</th>
+                      <th>Team</th>
+                      <th class="games num">Games</th>
+                      <th class="num">Total</th>
+                      <th class="per-game num">Per Game</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
                 </table>
               </div>
-            </div>
+              <div class="mt-3 text-right">
+                <button class="text-afl-blue hover:underline view-top10" data-stat="games">View full Top 10</button>
+              </div>
+            </section>
 
-            <!-- Disposals -->
-            <div class="landing-block" id="landing-disposals">
+            <!-- Disposals card -->
+            <section class="leader-card" id="landing-disposals">
               <h3 class="text-lg font-semibold text-gray-900 mb-3">Top 10 Career Disposals</h3>
-              <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
-                  <thead class="bg-gray-50 text-gray-600">
+              <div class="table-wrap">
+                <table>
+                  <thead>
                     <tr>
-                      <th class="px-3 py-2 text-left">#</th>
-                      <th class="px-3 py-2 text-left">Player</th>
-                      <th class="px-3 py-2 text-left">Team</th>
-                      <th class="px-3 py-2 text-right">Games</th>
-                      <th class="px-3 py-2 text-right">Total</th>
-                      <th class="px-3 py-2 text-right">Per Game</th>
+                      <th>#</th>
+                      <th>Player</th>
+                      <th>Team</th>
+                      <th class="games num">Games</th>
+                      <th class="num">Total</th>
+                      <th class="per-game num">Per Game</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
                 </table>
               </div>
-            </div>
+              <div class="mt-3 text-right">
+                <button class="text-afl-blue hover:underline view-top10" data-stat="disposals">View full Top 10</button>
+              </div>
+            </section>
           </div>
         </section>
 

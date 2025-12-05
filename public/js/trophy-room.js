@@ -110,6 +110,7 @@ function renderLandingSection() {
   renderLandingTable(landingGoals, getHeadlineLeaders('goals'));
   renderLandingTable(landingGames, getHeadlineLeaders('games'));
   renderLandingTable(landingDisposals, getHeadlineLeaders('disposals'));
+  wireLandingButtons();
 }
 
 function renderLandingTable(container, rows) {
@@ -122,14 +123,30 @@ function renderLandingTable(container, rows) {
     const tr = document.createElement('tr');
     const perGame = row.avg_per_game != null ? Number(row.avg_per_game).toFixed(2) : '-';
     tr.innerHTML = `
-      <td class="px-3 py-2">${index + 1}</td>
-      <td class="px-3 py-2">${row.player_name}</td>
-      <td class="px-3 py-2">${row.primary_team || ''}</td>
-      <td class="px-3 py-2 text-right">${row.games_played}</td>
-      <td class="px-3 py-2 text-right">${row.stat_value}</td>
-      <td class="px-3 py-2 text-right">${perGame}</td>
+      <td>${index + 1}</td>
+      <td class="player">${row.player_name}</td>
+      <td class="team">${row.primary_team || ''}</td>
+      <td class="games num">${row.games_played}</td>
+      <td class="num">${row.stat_value}</td>
+      <td class="per-game num">${perGame}</td>
     `;
     tbody.appendChild(tr);
+  });
+}
+
+function wireLandingButtons() {
+  document.querySelectorAll('.leader-card .view-top10').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = String(btn.dataset.stat || '').toLowerCase();
+      const rows = leaders.filter(r => String(r.stat_key || '').toLowerCase() === key);
+      if (!rows || rows.length === 0) return;
+      const stat = {
+        stat_key: key,
+        stat_label: rows[0].stat_label || `Top 10 ${key}`,
+        rows
+      };
+      showStatModal(stat);
+    });
   });
 }
 
@@ -199,4 +216,3 @@ function renderStatsGrid(statGroups) {
 }
 
 document.addEventListener('DOMContentLoaded', loadTrophyRoom);
-
