@@ -122,13 +122,15 @@ function renderLandingTable(container, rows) {
   rows.slice(0, 10).forEach((row, index) => {
     const tr = document.createElement('tr');
     const perGame = row.avg_per_game != null ? Number(row.avg_per_game).toFixed(2) : '-';
+    const games = row.games_played != null ? row.games_played : '-';
     tr.innerHTML = `
       <td>${index + 1}</td>
-      <td class="player">${row.player_name}</td>
-      <td class="team">${row.primary_team || ''}</td>
-      <td class="games num">${row.games_played}</td>
+      <td>
+        <div class="player-name">${row.player_name}</div>
+        <div class="player-meta">${games} games • ${perGame} per game</div>
+      </td>
+      <td>${row.primary_team || ''}</td>
       <td class="num">${row.stat_value}</td>
-      <td class="per-game num">${perGame}</td>
     `;
     tbody.appendChild(tr);
   });

@@ -19,8 +19,8 @@
   <style>
     /* Trophy Room landing grid and cards */
     .landing-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      display: flex;
+      flex-direction: column;
       gap: 1.5rem;
     }
     .leader-card {
@@ -32,12 +32,16 @@
     }
     .leader-card table {
       width: 100%;
-      table-layout: fixed;
       border-collapse: collapse;
-      font-size: 0.85rem;
+      table-layout: fixed;
+      font-size: 0.9rem;
     }
-    .leader-card th, .leader-card td {
+    .leader-card th,
+    .leader-card td {
       padding: 0.4rem 0.5rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       border-bottom: 1px solid #f1f5f9;
     }
     .leader-card th {
@@ -45,24 +49,12 @@
       color: #334155;
       font-weight: 600;
     }
-    .leader-card td.num, .leader-card th.num {
+    .leader-card td.num,
+    .leader-card th.num {
       text-align: right;
-      white-space: nowrap;
     }
-    .leader-card td.player, .leader-card td.team {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    /* Mobile: hide games & per-game; show on lg */
-    .leader-card th.games, .leader-card td.games,
-    .leader-card th.per-game, .leader-card td.per-game { display: none; }
-    @media (min-width: 1024px) {
-      .leader-card th.games, .leader-card td.games,
-      .leader-card th.per-game, .leader-card td.per-game { display: table-cell; }
-    }
-    /* Optional: cap table height */
-    .leader-card .table-wrap { max-height: 360px; overflow-y: auto; }
+    .player-name { font-weight: 500; }
+    .player-meta { font-size: 0.75rem; color: #6b7280; }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -123,9 +115,7 @@
                       <th>#</th>
                       <th>Player</th>
                       <th>Team</th>
-                      <th class="games num">Games</th>
                       <th class="num">Total</th>
-                      <th class="per-game num">Per Game</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
@@ -146,9 +136,7 @@
                       <th>#</th>
                       <th>Player</th>
                       <th>Team</th>
-                      <th class="games num">Games</th>
                       <th class="num">Total</th>
-                      <th class="per-game num">Per Game</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
@@ -169,9 +157,7 @@
                       <th>#</th>
                       <th>Player</th>
                       <th>Team</th>
-                      <th class="games num">Games</th>
                       <th class="num">Total</th>
-                      <th class="per-game num">Per Game</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
