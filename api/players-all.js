@@ -38,18 +38,42 @@ export default async function handler(req, res) {
       let prof = null;
       if (profileRsp.error) {
         // Fallback to view select if RPC is not resolved yet
-        const { data: profRow, error: profErr } = await supabase
+        const { data: profRow, error: profErr, status } = await supabase
           .from('mv_player_career_totals')
           .select('player_name, games, disposals, goals, kicks, handballs, marks, tackles, first_season, last_season, value_per_game_disposals, value_per_game_goals, value_per_game_kicks, value_per_game_handballs, value_per_game_marks, value_per_game_tackles')
           .eq('player_id', pid)
-          .single();
-        if (profErr) return res.status(500).json({ error: 'Failed to fetch player profile', details: profileRsp.error.message || profErr.message });
-        prof = profRow;
+          .maybeSingle();
+        if (!profErr && profRow) {
+          prof = profRow;
+        } else {
+          // Last resort: fetch a name from any match row so UI can render
+          try {
+            const { data: nameRows } = await supabase
+              .from('mv_match_player_stats')
+              .select('player_name')
+              .eq('player_id', pid)
+              .order('match_date', { ascending: false })
+              .limit(1);
+            const fallbackName = Array.isArray(nameRows) && nameRows[0] ? nameRows[0].player_name : '';
+            prof = {
+              player_name: fallbackName || '',
+              games: 0, disposals: 0, goals: 0, kicks: 0, handballs: 0, marks: 0, tackles: 0,
+              first_season: null, last_season: null
+            };
+          } catch (_) {
+            prof = {
+              player_name: '',
+              games: 0, disposals: 0, goals: 0, kicks: 0, handballs: 0, marks: 0, tackles: 0,
+              first_season: null, last_season: null
+            };
+          }
+        }
       } else {
         const profArr = Array.isArray(profileRsp.data) ? profileRsp.data : (profileRsp.data ? [profileRsp.data] : []);
         prof = profArr[0] || null;
       }
-      const [first, ...rest] = (prof.player_name || '').split(' ');
+      if (!prof) prof = { player_name: '' };
+      const [first, ...rest] = ((prof.player_name || '') + '').split(' ');
       const player = {
         player_first_name: first || '',
         player_last_name: rest.join(' '),
@@ -79,6 +103,21 @@ export default async function handler(req, res) {
           .order('season', { ascending: true });
         seasons = sData || [];
       }
+
+      // Aggregate season totals as a robust fallback for career totals
+      const seasonAgg = (Array.isArray(seasons) ? seasons : []).reduce((acc, r) => {
+        const num = (v) => Number(v) || 0;
+        acc.games      += num(r.games);
+        acc.disposals  += num(r.disposals);
+        acc.goals      += num(r.goals);
+        acc.kicks      += num(r.kicks);
+        acc.handballs  += num(r.handballs);
+        acc.marks      += num(r.marks);
+        acc.tackles    += num(r.tackles);
+        acc.first      = acc.first == null ? Number(r.season) : Math.min(acc.first, Number(r.season) || acc.first);
+        acc.last       = acc.last == null  ? Number(r.season) : Math.max(acc.last,  Number(r.season) || acc.last);
+        return acc;
+      }, { games: 0, disposals: 0, goals: 0, kicks: 0, handballs: 0, marks: 0, tackles: 0, first: null, last: null });
 
       let games = gamesRsp.error ? [] : (gamesRsp.data || []);
       if (gamesRsp.error) {
@@ -229,16 +268,17 @@ export default async function handler(req, res) {
       // Merge computed aggregates back into player core object
       // Prefer canonical totals from mv_player_totals profile
       player.player_id = Number(playerId);
-      player.total_games = prof.games || totalGames || 0;
-      player.total_disposals = (prof.disposals ?? null) != null ? Number(prof.disposals) : totals.disposals;
-      player.total_goals = (prof.goals ?? null) != null ? Number(prof.goals) : totals.goals;
-      player.total_kicks = (prof.kicks ?? null) != null ? Number(prof.kicks) : totals.kicks;
-      player.total_handballs = (prof.handballs ?? null) != null ? Number(prof.handballs) : totals.handballs;
-      player.total_marks = (prof.marks ?? null) != null ? Number(prof.marks) : totals.marks;
-      player.total_tackles = (prof.tackles ?? null) != null ? Number(prof.tackles) : totals.tackles;
+      player.total_games = (prof.games ?? null) != null ? Number(prof.games) : (seasonAgg.games || totalGames || 0);
+      player.total_disposals = (prof.disposals ?? null) != null ? Number(prof.disposals) : (seasonAgg.disposals || totals.disposals);
+      player.total_goals = (prof.goals ?? null) != null ? Number(prof.goals) : (seasonAgg.goals || totals.goals);
+      player.total_kicks = (prof.kicks ?? null) != null ? Number(prof.kicks) : (seasonAgg.kicks || totals.kicks);
+      player.total_handballs = (prof.handballs ?? null) != null ? Number(prof.handballs) : (seasonAgg.handballs || totals.handballs);
+      player.total_marks = (prof.marks ?? null) != null ? Number(prof.marks) : (seasonAgg.marks || totals.marks);
+      player.total_tackles = (prof.tackles ?? null) != null ? Number(prof.tackles) : (seasonAgg.tackles || totals.tackles);
 
-      player.first_year = career_start ?? player.first_year ?? null;
-      player.last_year = career_end ?? player.last_year ?? null;
+      // Prefer canonical profile years; then season aggregates; then derived from games window
+      player.first_year = prof.first_season ?? seasonAgg.first ?? career_start ?? player.first_year ?? null;
+      player.last_year  = prof.last_season  ?? seasonAgg.last  ?? career_end   ?? player.last_year  ?? null;
       player.teams_path = teams_path || null;
       player.debut_date = debut_date;
       player.debut_venue = debut_venue;
