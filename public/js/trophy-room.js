@@ -28,7 +28,24 @@ const CATEGORY_LABELS = {
 
 async function loadTrophyRoom() {
   try {
-    leaders = await getTrophyRoom();
+    const raw = await getTrophyRoom();
+    // Normalize RPC rows to a consistent shape expected by UI
+    leaders = (Array.isArray(raw) ? raw : []).map(r => {
+      const statVal = Number(r.stat_value ?? r.value ?? 0);
+      const games   = Number(r.games_played ?? r.games ?? 0);
+      const avg     = r.avg_per_game ?? r.value_per_game;
+      return {
+        category: String(r.category || '').toLowerCase(),
+        stat_key: r.stat_key || '',
+        stat_label: r.stat_label || (r.stat_key ? `Career ${r.stat_key}` : 'Career Stat'),
+        player_id: r.player_id,
+        player_name: r.player_name || `${r.player_first_name || ''} ${r.player_last_name || ''}`.trim(),
+        primary_team: r.primary_team || r.team || r.player_team || '',
+        games_played: games,
+        stat_value: statVal,
+        avg_per_game: avg != null ? Number(avg) : (games > 0 ? (statVal / games) : 0)
+      };
+    });
     buildCategoryStatsMap();
     renderLandingSection();
     renderCategoryTabs();
