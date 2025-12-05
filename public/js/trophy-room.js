@@ -144,7 +144,7 @@ function renderLandingTable(container, rows) {
 
     tr.innerHTML = `
       <td class="rank center">${rankHtml}</td>
-      <td>
+      <td class="center">
         <div class="player-name">${row.player_name}</div>
         <div class="player-meta">${metaLine}</div>
       </td>
