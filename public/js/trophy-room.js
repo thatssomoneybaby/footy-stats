@@ -139,12 +139,12 @@ function renderLandingTable(container, rows) {
     const pct = max > 0 ? Math.max(0, Math.min(100, Math.round((total / max) * 100))) : 0;
 
     tr.innerHTML = `
-      <td class="rank">${rankHtml}</td>
+      <td class="rank center">${rankHtml}</td>
       <td>
         <div class="player-name">${row.player_name}</div>
         <div class="player-meta">${games} games • ${perGame} per game</div>
       </td>
-      <td class="team">${row.primary_team || ''}</td>
+      <td class="team center">${row.primary_team || ''}</td>
       <td class="num tabular-nums">
         <div class="total-cell">
           <div class="total-bar"><div class="total-fill" style="width:${pct}%"></div></div>
