@@ -9,6 +9,7 @@ export default async function handler(req, res) {
   try {
     //  === 2. Serve cache if it's <10 minutes old  =======================
     if (Date.now() - cache.ts < 10 * 60_000) {
+      res.setHeader('Cache-Control', 's-maxage=300');
       return res.status(200).json(cache.data);
     }
 
@@ -40,6 +41,7 @@ export default async function handler(req, res) {
 
     //  === 4. Cache & return  ============================================
     cache = { ts: Date.now(), data: upcoming };
+    res.setHeader('Cache-Control', 's-maxage=300');
     res.status(200).json(upcoming);
   } catch (err) {
     console.error('Upcoming-games fetch failed:', err);

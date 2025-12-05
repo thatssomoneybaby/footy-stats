@@ -107,6 +107,8 @@ export default async function handler(req, res) {
     }
   }
 
+  // Cache static head-to-head data at the edge – does not change frequently
+  res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=120');
   res.status(200).json({
     summary,
     biggestWins,

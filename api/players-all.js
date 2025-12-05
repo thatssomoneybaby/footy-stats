@@ -18,6 +18,8 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Failed get_player_alphabet', details: error.message });
       }
       const letters = Array.isArray(data) ? data : [];
+      // Cache at edge – stable meta
+      res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=3600');
       return res.status(200).json({ letters });
 
     } else if (playerId) {
@@ -38,7 +40,7 @@ export default async function handler(req, res) {
         // Fallback to view select if RPC is not resolved yet
         const { data: profRow, error: profErr } = await supabase
           .from('mv_player_career_totals')
-          .select('*')
+          .select('player_name, games, disposals, goals, kicks, handballs, marks, tackles, first_season, last_season, value_per_game_disposals, value_per_game_goals, value_per_game_kicks, value_per_game_handballs, value_per_game_marks, value_per_game_tackles')
           .eq('player_id', pid)
           .single();
         if (profErr) return res.status(500).json({ error: 'Failed to fetch player profile', details: profileRsp.error.message || profErr.message });
@@ -72,7 +74,7 @@ export default async function handler(req, res) {
       if (seasonsRsp.error) {
         const { data: sData } = await supabase
           .from('mv_player_season_totals')
-          .select('*')
+          .select('season, team, games, goals, disposals, kicks, handballs, marks, tackles, guernsey_number')
           .eq('player_id', pid)
           .order('season', { ascending: true });
         seasons = sData || [];
@@ -82,7 +84,7 @@ export default async function handler(req, res) {
       if (gamesRsp.error) {
         const { data: gData } = await supabase
           .from('mv_match_player_stats')
-          .select('*')
+          .select('match_id, match_date, match_round, round_number, venue_name, match_home_team, home_team, match_away_team, away_team, player_team, team, behinds, disposals, goals, kicks, handballs, marks, tackles')
           .eq('player_id', pid)
           .order('match_date', { ascending: false })
           .order('match_id', { ascending: false })
@@ -136,7 +138,8 @@ export default async function handler(req, res) {
         tackles: sum('tackles')
       };
 
-      const best = {
+      // Page-local bests (from currently loaded window)
+      const pageBest = {
         disposals: max('disposals'),
         goals: max('goals'),
         kicks: max('kicks'),
@@ -144,6 +147,33 @@ export default async function handler(req, res) {
         marks: max('marks'),
         tackles: max('tackles')
       };
+
+      // Compute DB-wide single-game bests to avoid pagination bias
+      async function getBestFromDb(p_player_id) {
+        const statKeys = ['disposals','goals','kicks','handballs','marks','tackles'];
+        const queries = statKeys.map(k =>
+          supabase
+            .from('mv_match_player_stats')
+            .select(k)
+            .eq('player_id', p_player_id)
+            .order(k, { ascending: false, nullsFirst: false })
+            .limit(1)
+        );
+        const results = await Promise.all(queries);
+        const best = {};
+        statKeys.forEach((k, i) => {
+          const row = results[i]?.data?.[0] || null;
+          best[k] = row ? (Number(row[k]) || 0) : 0;
+        });
+        return best;
+      }
+
+      let best = pageBest;
+      try {
+        best = await getBestFromDb(pid);
+      } catch (_) {
+        best = pageBest;
+      }
 
       // Career span and teams path
       const years = allGames
@@ -272,13 +302,24 @@ export default async function handler(req, res) {
         team_stints = [];
       }
 
-      // Return contract expected by the new frontend
+      // Return contract expected by the new frontend – include best_* on profile for the UI card
+      if (prof && typeof prof === 'object') {
+        prof.best_disposals = best.disposals;
+        prof.best_goals     = best.goals;
+        prof.best_kicks     = best.kicks;
+        prof.best_handballs = best.handballs;
+        prof.best_marks     = best.marks;
+        prof.best_tackles   = best.tackles;
+      }
+      // Cache per page briefly; content is historical
+      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=60');
       return res.status(200).json({ profile: prof, seasons, games: allGames, debut, team_stints, page, limit });
       
     } else if (letter) {
       // Players by letter - pass through RPC rows for frontend to use
       const { data, error } = await supabase.rpc('get_players_by_letter', { p_letter: letter });
       if (error) return res.status(500).json({ error: 'Failed to fetch players', details: error.message });
+      res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=300');
       return res.status(200).json({ players: data || [] });
       
     } else {

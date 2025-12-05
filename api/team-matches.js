@@ -19,6 +19,7 @@ export default async function handler(req, res) {
     console.error(error);
     return res.status(500).json({ error: 'DB error' });
   }
-  res.setHeader('Cache-Control', 'no-store');
+  // Matches for a season are stable; cache briefly at the edge
+  res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=120');
   res.json(data);            // array of matches for that season (≤ 40 rows)
 }

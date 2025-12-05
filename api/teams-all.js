@@ -123,20 +123,47 @@ export default async function handler(req, res) {
 
       // Derive extra summary stats from mv_season_matches (targeted queries)
       async function deriveFromMatches(team) {
-        // Highest score: best home_score among home games vs best away_score among away games
-        const [homeHigh, awayHigh] = await Promise.all([
-          supabase
-            .from('mv_season_matches')
-            .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
-            .eq('home_team', team)
-            .order('home_score', { ascending: false })
-            .limit(1),
-          supabase
-            .from('mv_season_matches')
-            .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
-            .eq('away_team', team)
-            .order('away_score', { ascending: false })
-            .limit(1)
+        // Kick off all queries concurrently to minimise round trips
+        const qHomeHigh = supabase
+          .from('mv_season_matches')
+          .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
+          .eq('home_team', team)
+          .order('home_score', { ascending: false })
+          .limit(1);
+        const qAwayHigh = supabase
+          .from('mv_season_matches')
+          .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
+          .eq('away_team', team)
+          .order('away_score', { ascending: false })
+          .limit(1);
+        const qHomeWin = supabase
+          .from('mv_season_matches')
+          .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
+          .eq('winner', team)
+          .eq('home_team', team)
+          .order('margin', { ascending: false })
+          .limit(1);
+        const qAwayWin = supabase
+          .from('mv_season_matches')
+          .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
+          .eq('winner', team)
+          .eq('away_team', team)
+          .order('margin', { ascending: false })
+          .limit(1);
+        const qGfCount = supabase
+          .from('mv_season_matches')
+          .select('match_id', { count: 'exact', head: true })
+          .eq('winner', team)
+          .ilike('round_number', 'GF%');
+        const qGfRows = supabase
+          .from('mv_season_matches')
+          .select('season, match_date')
+          .eq('winner', team)
+          .ilike('round_number', 'GF%')
+          .limit(1000);
+
+        const [homeHigh, awayHigh, homeWin, awayWin, gfCountRsp, gfRowsRsp] = await Promise.all([
+          qHomeHigh, qAwayHigh, qHomeWin, qAwayWin, qGfCount, qGfRows
         ]);
 
         function toYear(row) {
@@ -170,23 +197,6 @@ export default async function handler(req, res) {
         }
 
         // Biggest win: max margin across wins, from home and away sides
-        const [homeWin, awayWin] = await Promise.all([
-          supabase
-            .from('mv_season_matches')
-            .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
-            .eq('winner', team)
-            .eq('home_team', team)
-            .order('margin', { ascending: false })
-            .limit(1),
-          supabase
-            .from('mv_season_matches')
-            .select('season, match_date, round_number, venue_name, home_team, away_team, home_score, away_score, margin')
-            .eq('winner', team)
-            .eq('away_team', team)
-            .order('margin', { ascending: false })
-            .limit(1)
-        ]);
-
         const winHome = (homeWin.data && homeWin.data[0]) || null;
         const winAway = (awayWin.data && awayWin.data[0]) || null;
         const homeMargin = winHome ? Number(winHome.margin ?? 0) : -1;
@@ -214,11 +224,7 @@ export default async function handler(req, res) {
         // Canonical premiership count: count mv_season_matches where round_number ILIKE 'GF%' and winner = team
         let grandFinals = 0;
         try {
-          const { count, error: gfErr } = await supabase
-            .from('mv_season_matches')
-            .select('match_id', { count: 'exact', head: true })
-            .eq('winner', team)
-            .ilike('round_number', 'GF%');
+          const { count, error: gfErr } = gfCountRsp;
           if (!gfErr && typeof count === 'number') grandFinals = count;
           else if (gfErr) console.error('GF count error:', gfErr);
         } catch (e) {
@@ -228,12 +234,7 @@ export default async function handler(req, res) {
         // Collect premiership years (GF rows)
         let premiershipYears = [];
         try {
-          const { data: gfRows, error: gfRowsErr } = await supabase
-            .from('mv_season_matches')
-            .select('season, match_date')
-            .eq('winner', team)
-            .ilike('round_number', 'GF%')
-            .limit(50000);
+          const { data: gfRows, error: gfRowsErr } = gfRowsRsp;
           if (!gfRowsErr && Array.isArray(gfRows)) {
             const years = gfRows
               .map(r => Number(r.season ?? Number(String(r.match_date).slice(0,4))))
@@ -294,7 +295,8 @@ export default async function handler(req, res) {
         })),
         top_games: topGamesArr
       };
-      res.setHeader('Cache-Control', 'no-store');
+      // Cache team summaries briefly at the edge to avoid cold starts hurting UX
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
       return res.json(payload);
     }
 
@@ -310,7 +312,8 @@ export default async function handler(req, res) {
       last_season: r.last_season ?? r.last_year ?? null,
       total_matches: r.total_matches ?? r.games ?? 0
     }));
-    res.setHeader('Cache-Control', 'no-store');
+    // Full teams list is fairly static – cache for a short window
+    res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=120');
     return res.json(rows);
   } catch (err) {
     console.error('Supabase RPC error:', err);

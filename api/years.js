@@ -68,6 +68,7 @@ export default async function handler(req, res) {
           percentage: pct
         };
       });
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
       return res.json(rows);
     }
 
@@ -90,6 +91,7 @@ export default async function handler(req, res) {
         margin: m.margin,
         winner: m.winner
       }));
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
       return res.json(rows);
     }
 
@@ -112,6 +114,7 @@ export default async function handler(req, res) {
         margin: m.margin,
         winner: m.winner
       }));
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
       return res.json(rows);
     }
 
@@ -176,6 +179,7 @@ export default async function handler(req, res) {
       top_tackles_total: row?.top_tackles_total ?? null,
       top_tackles_team: row?.top_tackles_team ?? null
     };
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
     return res.json(mapped);
   } catch (err) {
     console.error(err);

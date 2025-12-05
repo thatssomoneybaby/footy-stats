@@ -268,15 +268,23 @@ function displayPlayerDetails(playerData) {
     teamGuernseysDisplay = teamDisplays.join(', ');
   }
 
-  // Calculate best single game performances from actual game data
+  // Best single game performances — prefer API-provided career maxima to avoid pagination bias
   const bestStats = {
-    disposals: Math.max(...games.map(g => parseInt(g.disposals) || 0)),
-    goals: Math.max(...games.map(g => parseInt(g.goals) || 0)),
-    kicks: Math.max(...games.map(g => parseInt(g.kicks) || 0)),
-    handballs: Math.max(...games.map(g => parseInt(g.handballs) || 0)),
-    marks: Math.max(...games.map(g => parseInt(g.marks) || 0)),
-    tackles: Math.max(...games.map(g => parseInt(g.tackles) || 0))
+    disposals: Number(profile.best_disposals ?? NaN),
+    goals: Number(profile.best_goals ?? NaN),
+    kicks: Number(profile.best_kicks ?? NaN),
+    handballs: Number(profile.best_handballs ?? NaN),
+    marks: Number(profile.best_marks ?? NaN),
+    tackles: Number(profile.best_tackles ?? NaN)
   };
+  // Fallback to calculating from currently loaded page if API did not supply
+  const pageMax = (arr, key) => Math.max(...arr.map(g => parseInt(g[key]) || 0));
+  if (!Number.isFinite(bestStats.disposals)) bestStats.disposals = pageMax(games, 'disposals');
+  if (!Number.isFinite(bestStats.goals))     bestStats.goals     = pageMax(games, 'goals');
+  if (!Number.isFinite(bestStats.kicks))     bestStats.kicks     = pageMax(games, 'kicks');
+  if (!Number.isFinite(bestStats.handballs)) bestStats.handballs = pageMax(games, 'handballs');
+  if (!Number.isFinite(bestStats.marks))     bestStats.marks     = pageMax(games, 'marks');
+  if (!Number.isFinite(bestStats.tackles))   bestStats.tackles   = pageMax(games, 'tackles');
 
   // Handle case where no valid data exists (all zeros)
   Object.keys(bestStats).forEach(key => {

@@ -19,6 +19,8 @@ export default async function handler(req, res) {
       // Expect RPC rows to already include: category, stat_key, stat_label, player_id,
       // player_name, primary_team, games_played, stat_value, avg_per_game.
       const leaders = Array.isArray(data) ? data : [];
+      // Cache leaders for a bit – highly stable
+      res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=300');
       return res.json({ leaders });
       
     } else if (type === 'insights') {
@@ -52,6 +54,8 @@ export default async function handler(req, res) {
         });
       }
 
+      // Insights recap can change often – avoid caching
+      res.setHeader('Cache-Control', 'no-store');
       res.json(insights);
       
     } else if (type === 'spotlight') {
@@ -155,6 +159,7 @@ export default async function handler(req, res) {
       if (!mrows.length) return res.json({ type: 'empty' });
       const mpick = mrows[Math.floor(Math.random() * mrows.length)];
       const val = Number(mpick[statPick]) || 0;
+      res.setHeader('Cache-Control', 'no-store');
       return res.json({
         type: 'monster_game',
         title: statPick === 'disposals' ? 'Possession Masterclass' : 'Goal Kicking Clinic',
@@ -206,6 +211,7 @@ export default async function handler(req, res) {
         });
       }
 
+      res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=300');
       res.json(hallOfRecords);
       
     } else if (type === 'team-details') {
