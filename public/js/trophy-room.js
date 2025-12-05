@@ -121,7 +121,7 @@ function renderLandingTable(container, rows) {
 
   const max = rows.length ? Number(rows[0].stat_value) || 0 : 0;
   const card = container.closest('.leader-card');
-  const statKey = card?.dataset?.stat || '';
+  const statKey = (card?.dataset?.stat || '').toLowerCase();
 
   rows.slice(0, 10).forEach((row, index) => {
     const tr = document.createElement('tr');
@@ -138,11 +138,15 @@ function renderLandingTable(container, rows) {
     const total = Number(row.stat_value) || 0;
     const pct = max > 0 ? Math.max(0, Math.min(100, Math.round((total / max) * 100))) : 0;
 
+    const metaLine = statKey === 'games'
+      ? `${games} games`
+      : (perGame !== '-' ? `${games} games • ${perGame} per game` : `${games} games`);
+
     tr.innerHTML = `
       <td class="rank center">${rankHtml}</td>
       <td>
         <div class="player-name">${row.player_name}</div>
-        <div class="player-meta">${games} games • ${perGame} per game</div>
+        <div class="player-meta">${metaLine}</div>
       </td>
       <td class="team center">${row.primary_team || ''}</td>
       <td class="num tabular-nums">
