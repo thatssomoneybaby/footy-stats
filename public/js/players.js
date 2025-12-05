@@ -316,7 +316,7 @@ function displayPlayerDetails(playerData) {
         <div class="text-center">
           <div class="font-semibold text-afl-blue text-sm">Seasons Played</div>
           <div class="text-xl font-bold text-afl-blue">${seasonsCount}</div>
-          <div class="text-xs text-gray-500">Clubs: ${clubsCount}${guernseyCount ? ` • Guernseys: ${guernseyCount}` : ''}</div>
+          <div class="text-xs text-gray-500">Clubs: ${clubsCount}</div>
         </div>
         <div class="text-center">
           <div class="font-semibold text-afl-blue text-sm">Debut</div>
