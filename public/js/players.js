@@ -296,8 +296,10 @@ function displayPlayerDetails(playerData) {
   const avgMarks     = gamesCountProfile ? (Math.round((Number(profile.marks||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
   const avgTackles   = gamesCountProfile ? (Math.round((Number(profile.tackles||0)/gamesCountProfile)*10)/10).toFixed(1) : '0.0';
   
-  // Build a simple teams path for the summary tile (no guernsey details)
-  const teamPathSummary = teamStints.length ? teamStints.map(s => s.team).join(' → ') : (Array.isArray(profile.teams) ? profile.teams.join(' → ') : '');
+  // Derive simple counts for summary tiles
+  const seasonsCount = Array.isArray(seasons) ? seasons.length : 0;
+  const clubsCount = teamStints.length ? teamStints.length : (Array.isArray(profile.teams) ? profile.teams.length : 0);
+  const guernseyCount = Array.isArray(profile.guernsey_numbers) ? new Set(profile.guernsey_numbers.map(n => Number(n))).size : 0;
 
   playerSummary.innerHTML = `
     <!-- Basic Info Row -->
@@ -312,8 +314,9 @@ function displayPlayerDetails(playerData) {
           <div class="text-xl font-bold text-afl-blue">${profile.games || 0}</div>
         </div>
         <div class="text-center">
-          <div class="font-semibold text-afl-blue text-sm">Teams</div>
-          <div class="text-sm font-medium">${teamPathSummary || 'N/A'}</div>
+          <div class="font-semibold text-afl-blue text-sm">Seasons Played</div>
+          <div class="text-xl font-bold text-afl-blue">${seasonsCount}</div>
+          <div class="text-xs text-gray-500">Clubs: ${clubsCount}${guernseyCount ? ` • Guernseys: ${guernseyCount}` : ''}</div>
         </div>
         <div class="text-center">
           <div class="font-semibold text-afl-blue text-sm">Debut</div>
