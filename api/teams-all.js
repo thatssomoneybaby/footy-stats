@@ -4,9 +4,6 @@ import { supabase } from '../db.js';
  * GET /api/teams-all
  *   – no query                 ➜ get_teams()          (full list)
  *   – ?teamName=Essendon       ➜ get_team_summary('Essendon')
- *
- * Adds Cache‑Control: no-store while we debug so Vercel never serves a
- * stale response.
  */
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -24,15 +21,18 @@ export default async function handler(req, res) {
 
   try {
     if (teamName) {
+      const teamNameClean = String(teamName).trim();
+      if (!teamNameClean) {
+        return res.status(400).json({ error: 'Invalid teamName' });
+      }
+
       // -------------------------------------------------------------------
       //  Single team summary
       // -------------------------------------------------------------------
-      // Try a few common RPC/param name combinations for robustness
+      // Keep compatibility with both common parameter names
       const tries = [
-        { fn: 'get_team_summary', args: { p_team: teamName } },
-        { fn: 'get_team_summary', args: { team_name: teamName } },
-        { fn: 'team_summary',     args: { p_team: teamName } },
-        { fn: 'team_summary',     args: { team_name: teamName } }
+        { fn: 'get_team_summary', args: { p_team: teamNameClean } },
+        { fn: 'get_team_summary', args: { team_name: teamNameClean } }
       ];
 
       let rpcData = null;
@@ -50,63 +50,71 @@ export default async function handler(req, res) {
         });
         throw rpcError || new Error('No data returned from team summary RPC');
       }
-      if (used) console.log('Team summary RPC used:', used);
 
       const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
 
-      // Also pull leaders from mv_team_player_careers if RPC did not include them
-      // This uses read-only access and limits to top-10 per metric
-      const teamKey = row?.team_name ?? row?.team ?? teamName;
-      const [dispQ, goalsQ, gamesQ] = await Promise.all([
-        supabase
-          .from('mv_team_player_careers')
-          .select('player_first_name, player_last_name, player_name, team, games, disposals, goals')
-          .eq('team', teamKey)
-          .order('disposals', { ascending: false })
-          .limit(10),
-        supabase
-          .from('mv_team_player_careers')
-          .select('player_first_name, player_last_name, player_name, team, games, disposals, goals')
-          .eq('team', teamKey)
-          .order('goals', { ascending: false })
-          .limit(10),
-        supabase
-          .from('mv_team_player_careers')
-          .select('player_first_name, player_last_name, player_name, team, games')
-          .eq('team', teamKey)
-          .order('games', { ascending: false })
-          .limit(10)
-      ]);
+      const teamKey = row?.team_name ?? row?.team ?? teamNameClean;
+      const hasTopDisposals = Array.isArray(row?.top_disposals) && row.top_disposals.length > 0;
+      const hasTopGoals = Array.isArray(row?.top_goals) && row.top_goals.length > 0;
+      const hasTopGames = Array.isArray(row?.top_games) && row.top_games.length > 0;
 
-      const mapPlayer = (p, which) => {
-        const full = p.player_name || `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim();
-        const games = Number(p.games ?? p.games_played ?? 0) || 0;
-        const totals = {
-          goals: Number(p.goals ?? p.total_goals ?? 0) || 0,
-          disposals: Number(p.disposals ?? p.total_disposals ?? 0) || 0
-        };
-        const total = which === 'goals' ? totals.goals : totals.disposals;
-        const perGame = games ? +(total / games).toFixed(1) : 0.0;
-        return {
-          full_name: full,
-          games_played: games,
-          total,
-          per_game: perGame
-        };
-      };
+      let topDisposalsArr = [];
+      let topGoalsArr = [];
+      let topGamesArr = [];
 
-      const topDisposalsArr = Array.isArray(dispQ.data)
-        ? dispQ.data.map(p => mapPlayer(p, 'disposals'))
-        : [];
-      const topGoalsArr = Array.isArray(goalsQ.data)
-        ? goalsQ.data.map(p => mapPlayer(p, 'goals'))
-        : [];
-      const topGamesArr = Array.isArray(gamesQ.data)
-        ? gamesQ.data.map(p => ({
-            full_name: p.player_name || `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
-            games_played: Number(p.games ?? 0) || 0
-          }))
-        : [];
+      // Pull leaders from MV only when RPC payload does not already contain them
+      if (!hasTopDisposals || !hasTopGoals || !hasTopGames) {
+        const [dispQ, goalsQ, gamesQ] = await Promise.all([
+          supabase
+            .from('mv_team_player_careers')
+            .select('player_first_name, player_last_name, player_name, team, games, disposals, goals')
+            .eq('team', teamKey)
+            .order('disposals', { ascending: false })
+            .limit(10),
+          supabase
+            .from('mv_team_player_careers')
+            .select('player_first_name, player_last_name, player_name, team, games, disposals, goals')
+            .eq('team', teamKey)
+            .order('goals', { ascending: false })
+            .limit(10),
+          supabase
+            .from('mv_team_player_careers')
+            .select('player_first_name, player_last_name, player_name, team, games')
+            .eq('team', teamKey)
+            .order('games', { ascending: false })
+            .limit(10)
+        ]);
+
+        const mapPlayer = (p, which) => {
+          const full = p.player_name || `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim();
+          const games = Number(p.games ?? p.games_played ?? 0) || 0;
+          const totals = {
+            goals: Number(p.goals ?? p.total_goals ?? 0) || 0,
+            disposals: Number(p.disposals ?? p.total_disposals ?? 0) || 0
+          };
+          const total = which === 'goals' ? totals.goals : totals.disposals;
+          const perGame = games ? +(total / games).toFixed(1) : 0.0;
+          return {
+            full_name: full,
+            games_played: games,
+            total,
+            per_game: perGame
+          };
+        };
+
+        topDisposalsArr = Array.isArray(dispQ.data)
+          ? dispQ.data.map(p => mapPlayer(p, 'disposals'))
+          : [];
+        topGoalsArr = Array.isArray(goalsQ.data)
+          ? goalsQ.data.map(p => mapPlayer(p, 'goals'))
+          : [];
+        topGamesArr = Array.isArray(gamesQ.data)
+          ? gamesQ.data.map(p => ({
+              full_name: p.player_name || `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
+              games_played: Number(p.games ?? 0) || 0
+            }))
+          : [];
+      }
       // Map DB → UI shape expected by public/js/teams.js
       // Normalize win rate to a number; avoid string toFixed here
       const winRateNum = (() => {
@@ -258,7 +266,15 @@ export default async function handler(req, res) {
         return { highestScore, highestScoreDetail, biggestWin, biggestWinDetail, grandFinals, premiershipYears };
       }
 
-      const { highestScore, highestScoreDetail, biggestWin, biggestWinDetail, grandFinals, premiershipYears } = await deriveFromMatches(teamKey);
+      const needsDerivedSummary = !(
+        row?.highest_score != null &&
+        (row?.biggest_win != null || row?.biggest_margin != null) &&
+        (row?.grand_finals != null || row?.premierships != null) &&
+        Array.isArray(row?.premiership_years)
+      );
+      const derived = needsDerivedSummary
+        ? await deriveFromMatches(teamKey)
+        : { highestScore: 0, highestScoreDetail: null, biggestWin: 0, biggestWinDetail: null, grandFinals: 0, premiershipYears: [] };
 
       const asNum = v => {
         const n = Number(v); return Number.isFinite(n) ? n : 0;
@@ -274,26 +290,26 @@ export default async function handler(req, res) {
         last_season: row?.last_season ?? row?.last_year ?? null,
         total_matches: row?.total_matches ?? row?.games ?? 0,
         win_rate_pct: winRateNum,
-        highest_score: pickMax(highestScore, row?.highest_score),
-        highest_score_detail: highestScoreDetail,
-        biggest_win: pickMax(biggestWin, (row?.biggest_win ?? row?.biggest_margin)),
-        biggest_win_detail: biggestWinDetail,
-        grand_finals: pickMax(grandFinals, (row?.grand_finals ?? row?.premierships)),
-        premiership_years: premiershipYears,
+        highest_score: pickMax(derived.highestScore, row?.highest_score),
+        highest_score_detail: row?.highest_score_detail ?? derived.highestScoreDetail,
+        biggest_win: pickMax(derived.biggestWin, (row?.biggest_win ?? row?.biggest_margin)),
+        biggest_win_detail: row?.biggest_win_detail ?? derived.biggestWinDetail,
+        grand_finals: pickMax(derived.grandFinals, (row?.grand_finals ?? row?.premierships)),
+        premiership_years: Array.isArray(row?.premiership_years) ? row.premiership_years : derived.premiershipYears,
         // Leaderboards per club
-        top_disposals: (row?.top_disposals && row.top_disposals.length ? row.top_disposals : topDisposalsArr).map(p => ({
+        top_disposals: (hasTopDisposals ? row.top_disposals : topDisposalsArr).map(p => ({
           full_name: p.full_name ?? p.player_name ?? `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
           games_played: p.games_played ?? p.games ?? 0,
           total: p.total ?? p.value ?? p.disposals ?? 0,
           per_game: p.per_game ?? p.value_per_game ?? (p.games ? (p.total / p.games).toFixed(1) : '0.0')
         })),
-        top_goals: (row?.top_goals && row.top_goals.length ? row.top_goals : topGoalsArr).map(p => ({
+        top_goals: (hasTopGoals ? row.top_goals : topGoalsArr).map(p => ({
           full_name: p.full_name ?? p.player_name ?? `${p.player_first_name ?? ''} ${p.player_last_name ?? ''}`.trim(),
           games_played: p.games_played ?? p.games ?? 0,
           total: p.total ?? p.value ?? p.goals ?? 0,
           per_game: p.per_game ?? p.value_per_game ?? (p.games ? (p.total / p.games).toFixed(1) : '0.0')
         })),
-        top_games: topGamesArr
+        top_games: hasTopGames ? row.top_games : topGamesArr
       };
       // Cache team summaries briefly at the edge to avoid cold starts hurting UX
       res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');

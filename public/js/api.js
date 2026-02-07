@@ -209,11 +209,6 @@ export async function getTeamMatchesByYear(teamName, year) {
   return res.json();
 }
 
-// TODO: Implement this endpoint when data is available
-export async function getTopPerformers(teamName) {
-  return {};
-}
-
 export async function getHeadToHead(home, away) {
   const res = await fetch(
     `/api/head-to-head/${encodeURIComponent(home)}/${encodeURIComponent(away)}`

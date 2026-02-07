@@ -2,9 +2,12 @@ import { supabase } from '../../../db.js';
 
 export default async function handler(req, res) {
   const { home, away } = req.query;
+  if (!home || !away) {
+    return res.status(400).json({ error: 'Both home and away teams are required' });
+  }
 
   const clean = str =>
-    str.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    String(str).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const cleanHome = clean(home);
   const cleanAway = clean(away);
@@ -29,14 +32,26 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to fetch head-to-head summary' });
   }
 
+  const countFallback = (() => {
+    if (Array.isArray(totalCount)) {
+      const row = totalCount[0] || {};
+      return Number(row.total_meetings ?? row.count ?? 0) || 0;
+    }
+    return Number(totalCount) || 0;
+  })();
+  const totalMeetings = Number(rpcSummary.total_meetings ?? countFallback) || 0;
+  const draws = Number(rpcSummary.draws ?? 0) || 0;
+  const homeWins = Number(rpcSummary.home_wins ?? 0) || 0;
+  const awayWins = Number(rpcSummary.away_wins ?? 0) || 0;
+
   // Build summary object for front-end
   const summary = {
-    totalGames: rpcSummary.total_meetings,
-    homeWins: rpcSummary.home_wins,
-    awayWins: rpcSummary.away_wins,
-    draws: rpcSummary.draws,
-    homeLosses: rpcSummary.total_meetings - rpcSummary.home_wins - rpcSummary.draws,
-    awayLosses: rpcSummary.total_meetings - rpcSummary.away_wins - rpcSummary.draws
+    totalGames: totalMeetings,
+    homeWins,
+    awayWins,
+    draws,
+    homeLosses: totalMeetings - homeWins - draws,
+    awayLosses: totalMeetings - awayWins - draws
   };
 
   const { data: games, error } = await supabase
@@ -92,6 +107,7 @@ export default async function handler(req, res) {
   const lastMeeting = uniqueGames[0] || null;
   const biggestWins = {};
   uniqueGames.forEach(g => {
+    if (!g.winner) return;
     if (!biggestWins[g.winner] || g.margin > biggestWins[g.winner].margin) {
       biggestWins[g.winner] = { margin: g.margin, ...g };
     }

@@ -73,26 +73,6 @@ export default async function handler(req, res) {
         prof = profArr[0] || null;
       }
       if (!prof) prof = { player_name: '' };
-      const [first, ...rest] = ((prof.player_name || '') + '').split(' ');
-      const player = {
-        player_first_name: first || '',
-        player_last_name: rest.join(' '),
-        total_games: prof.games || 0,
-        total_disposals: prof.disposals || 0,
-        total_goals: prof.goals || 0,
-        total_kicks: prof.kicks || 0,
-        total_handballs: prof.handballs || 0,
-        total_marks: prof.marks || 0,
-        total_tackles: prof.tackles || 0,
-        first_year: prof.first_season || null,
-        last_year: prof.last_season || null,
-        avg_disposals: prof.value_per_game_disposals || (prof.games ? (prof.disposals / prof.games).toFixed(1) : '0.0'),
-        avg_goals: prof.value_per_game_goals || (prof.games ? (prof.goals / prof.games).toFixed(1) : '0.0'),
-        avg_kicks: prof.value_per_game_kicks || (prof.games ? (prof.kicks / prof.games).toFixed(1) : '0.0'),
-        avg_handballs: prof.value_per_game_handballs || (prof.games ? (prof.handballs / prof.games).toFixed(1) : '0.0'),
-        avg_marks: prof.value_per_game_marks || (prof.games ? (prof.marks / prof.games).toFixed(1) : '0.0'),
-        avg_tackles: prof.value_per_game_tackles || (prof.games ? (prof.tackles / prof.games).toFixed(1) : '0.0')
-      };
 
       let seasons = seasonsRsp.error ? [] : (seasonsRsp.data || []);
       if (seasonsRsp.error) {
@@ -190,21 +170,8 @@ export default async function handler(req, res) {
         };
       });
 
-      // Derive aggregates from per-game rows
-      const totalGames = allGames.length;
-      const numVal = v => Number(v) || 0;
-      const sum = (key) => allGames.reduce((acc, r) => acc + numVal(r[key]), 0);
-      const max = (key) => allGames.reduce((m, r) => Math.max(m, numVal(r[key])), 0);
-      const avg1 = (s) => totalGames ? +(s / totalGames).toFixed(1) : 0.0;
-
-      const totals = {
-        disposals: sum('disposals'),
-        goals: sum('goals'),
-        kicks: sum('kicks'),
-        handballs: sum('handballs'),
-        marks: sum('marks'),
-        tackles: sum('tackles')
-      };
+      // Derive page-local single-game bests from the current games window
+      const max = (key) => allGames.reduce((m, r) => Math.max(m, Number(r[key]) || 0), 0);
 
       // Page-local bests (from currently loaded window)
       const pageBest = {
@@ -243,26 +210,6 @@ export default async function handler(req, res) {
         best = pageBest;
       }
 
-      // Career span and teams path
-      const years = allGames
-        .map(r => { try { return Number(String(r.match_date).slice(0,4)); } catch { return null; } })
-        .filter(n => Number.isFinite(n));
-      // Prefer canonical span from totals profile
-      const career_start = prof.first_season ?? (years.length ? Math.min(...years) : null);
-      const career_end   = prof.last_season ?? (years.length ? Math.max(...years) : null);
-      const teamFirstYear = {};
-      allGames.forEach(r => {
-        const y = (function(){ try { return Number(String(r.match_date).slice(0,4)); } catch { return null; } })();
-        if (r.player_team && Number.isFinite(y)) {
-          if (!(r.player_team in teamFirstYear) || y < teamFirstYear[r.player_team]) teamFirstYear[r.player_team] = y;
-        }
-      });
-      const teams_path = Object
-        .entries(teamFirstYear)
-        .sort((a,b) => a[1] - b[1])
-        .map(([team]) => team)
-        .join(' → ');
-
       // True debut game: fetch independently of pagination (earliest match)
       let debut = null;
       try {
@@ -288,53 +235,6 @@ export default async function handler(req, res) {
       } catch (_) {
         // ignore; debut stays null
       }
-      // Also expose legacy profile debut fields for compatibility
-      const debut_date = debut ? debut.match_date : null;
-      const debut_venue = debut ? (debut.venue_name || null) : null;
-      const debut_opponent = null; // computed client-side from home/away vs player team
-      const debut_round_label = debut ? (debut.match_round || null) : null;
-
-      // Merge computed aggregates back into player core object
-      // Prefer canonical totals from mv_player_totals profile
-      player.player_id = Number(playerId);
-      player.total_games = (prof.games ?? null) != null ? Number(prof.games) : (seasonAgg.games || totalGames || 0);
-      player.total_disposals = (prof.disposals ?? null) != null ? Number(prof.disposals) : (seasonAgg.disposals || totals.disposals);
-      player.total_goals = (prof.goals ?? null) != null ? Number(prof.goals) : (seasonAgg.goals || totals.goals);
-      player.total_kicks = (prof.kicks ?? null) != null ? Number(prof.kicks) : (seasonAgg.kicks || totals.kicks);
-      player.total_handballs = (prof.handballs ?? null) != null ? Number(prof.handballs) : (seasonAgg.handballs || totals.handballs);
-      player.total_marks = (prof.marks ?? null) != null ? Number(prof.marks) : (seasonAgg.marks || totals.marks);
-      player.total_tackles = (prof.tackles ?? null) != null ? Number(prof.tackles) : (seasonAgg.tackles || totals.tackles);
-
-      // Prefer canonical profile years; then season aggregates; then derived from games window
-      player.first_year = prof.first_season ?? seasonAgg.first ?? career_start ?? player.first_year ?? null;
-      player.last_year  = prof.last_season  ?? seasonAgg.last  ?? career_end   ?? player.last_year  ?? null;
-      player.teams_path = teams_path || null;
-      player.debut_date = debut_date;
-      player.debut_venue = debut_venue;
-      player.debut_opponent = debut_opponent;
-      player.debut_round_label = debut_round_label;
-
-      // Keep avg_* values from profile if present; ensure numeric (1 decimal)
-      const round1 = (v) => Number.isFinite(v) ? Math.round(v * 10) / 10 : 0;
-      if (player.avg_disposals == null) player.avg_disposals = round1(avg1(totals.disposals));
-      else player.avg_disposals = round1(Number(player.avg_disposals));
-      if (player.avg_goals == null)     player.avg_goals     = round1(avg1(totals.goals));
-      else player.avg_goals = round1(Number(player.avg_goals));
-      if (player.avg_kicks == null)     player.avg_kicks     = round1(avg1(totals.kicks));
-      else player.avg_kicks = round1(Number(player.avg_kicks));
-      if (player.avg_handballs == null) player.avg_handballs = round1(avg1(totals.handballs));
-      else player.avg_handballs = round1(Number(player.avg_handballs));
-      if (player.avg_marks == null)     player.avg_marks     = round1(avg1(totals.marks));
-      else player.avg_marks = round1(Number(player.avg_marks));
-      if (player.avg_tackles == null)   player.avg_tackles   = round1(avg1(totals.tackles));
-      else player.avg_tackles = round1(Number(player.avg_tackles));
-
-      player.best_disposals = best.disposals;
-      player.best_goals     = best.goals;
-      player.best_kicks     = best.kicks;
-      player.best_handballs = best.handballs;
-      player.best_marks     = best.marks;
-      player.best_tackles   = best.tackles;
 
       // Team-by-team games + guernsey history (ordered by first usage)
       let team_stints = [];

@@ -668,7 +668,10 @@ function setupSearch() {
       filteredPlayers = [...allPlayers];
     } else {
       filteredPlayers = allPlayers.filter(player => {
-        const fullName = `${player.player_first_name} ${player.player_last_name}`.toLowerCase();
+        const fullName = (
+          player.player_name ||
+          `${player.player_first_name || ''} ${player.player_last_name || ''}`
+        ).toLowerCase();
         return fullName.includes(searchTerm);
       });
     }
@@ -685,15 +688,24 @@ function setupSort() {
     if (filteredPlayers.length === 0) return;
     
     filteredPlayers.sort((a, b) => {
+      const fullNameA = (a.player_name || `${a.player_last_name || ''} ${a.player_first_name || ''}`).trim();
+      const fullNameB = (b.player_name || `${b.player_last_name || ''} ${b.player_first_name || ''}`).trim();
+      const gamesA = Number(a.games ?? a.total_games ?? 0) || 0;
+      const gamesB = Number(b.games ?? b.total_games ?? 0) || 0;
+      const disposalsA = Number(a.disposals ?? a.total_disposals ?? 0) || 0;
+      const disposalsB = Number(b.disposals ?? b.total_disposals ?? 0) || 0;
+      const goalsA = Number(a.goals ?? a.total_goals ?? 0) || 0;
+      const goalsB = Number(b.goals ?? b.total_goals ?? 0) || 0;
+
       switch (sortBy) {
         case 'name':
-          return `${a.player_last_name} ${a.player_first_name}`.localeCompare(`${b.player_last_name} ${b.player_first_name}`);
+          return fullNameA.localeCompare(fullNameB);
         case 'games':
-          return b.total_games - a.total_games;
+          return gamesB - gamesA;
         case 'disposals':
-          return (b.total_disposals || 0) - (a.total_disposals || 0);
+          return disposalsB - disposalsA;
         case 'goals':
-          return (b.total_goals || 0) - (a.total_goals || 0);
+          return goalsB - goalsA;
         default:
           return 0;
       }

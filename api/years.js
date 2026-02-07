@@ -39,6 +39,9 @@ export default async function handler(req, res) {
     }
 
     const yr = parseInt(year, 10);
+    if (!Number.isFinite(yr)) {
+      return res.status(400).json({ error: 'Invalid year parameter' });
+    }
 
     // 2️⃣  ?year=YYYY&rounds=true  → list of rounds
     if (rounds === 'true') {

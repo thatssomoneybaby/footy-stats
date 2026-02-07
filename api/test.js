@@ -1,6 +1,11 @@
 import { supabase } from '../db.js';
 
 export default async function handler(req, res) {
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isProd && process.env.ENABLE_TEST_ENDPOINT !== 'true') {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
   try {
     // Check environment variables
     console.log('Environment check:', {
@@ -53,8 +58,7 @@ export default async function handler(req, res) {
     console.error('Test endpoint error:', error);
     res.status(500).json({ 
       error: 'Test failed',
-      message: error.message,
-      stack: error.stack
+      message: error.message
     });
   }
 }

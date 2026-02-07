@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <title>AFL Trophy Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -71,7 +75,7 @@
     .leader-card tbody tr:nth-child(even) { background: #fafafa; }
   </style>
 </head>
-<body class="bg-gray-50">
+<body class="app-body bg-gray-50">
   <!-- Mobile menu button -->
   <button data-drawer-target="default-sidebar" data-drawer-toggle="default-sidebar" aria-controls="default-sidebar" type="button" class="inline-flex items-center p-2 mt-2 ml-3 text-sm text-gray-500 rounded-lg lg:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600">
      <span class="sr-only">Open sidebar</span>
@@ -81,25 +85,25 @@
   </button>
 
   <!-- Sidebar -->
-  <aside id="default-sidebar" class="fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full lg:translate-x-0 border-r border-gray-200 bg-white shadow-lg" aria-label="Sidebar">
+  <aside id="default-sidebar" class="app-sidebar fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full lg:translate-x-0 border-r border-gray-200 bg-white shadow-lg" aria-label="Sidebar">
     <div class="h-full px-3 py-4 overflow-y-auto">
       <a href="index.html" class="flex items-center ps-2.5 mb-8">
-        <span class="self-center text-xl font-bold text-afl-blue">AFL Stats</span>
+        <span class="app-brand self-center text-xl font-bold text-afl-blue">AFL Stats</span>
       </a>
-      <nav class="space-y-2">
-        <a href="index.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+      <nav class="app-nav space-y-2">
+        <a href="index.html" class="app-nav-link flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
           <span class="ml-3">Home</span>
         </a>
-        <a href="years.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+        <a href="years.html" class="app-nav-link flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
           <span class="ml-3">Years</span>
         </a>
-        <a href="teams.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+        <a href="teams.html" class="app-nav-link flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
           <span class="ml-3">Teams</span>
         </a>
-        <a href="players.html" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+        <a href="players.html" class="app-nav-link flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
           <span class="ml-3">Players</span>
         </a>
-        <a href="trophy-room.html" class="flex items-center p-3 text-gray-900 rounded-lg bg-blue-50 border-l-4 border-afl-blue font-medium">
+        <a href="trophy-room.html" class="app-nav-link flex items-center p-3 text-gray-900 rounded-lg bg-blue-50 border-l-4 border-afl-blue font-medium">
           <span class="ml-3">Trophy Room</span>
         </a>
       </nav>
@@ -107,13 +111,13 @@
   </aside>
 
   <!-- Main content -->
-  <div class="lg:ml-64 min-h-screen">
-    <header class="bg-afl-blue text-white py-8 px-6 shadow-lg">
+  <div class="app-shell lg:ml-64 min-h-screen">
+    <header class="app-hero bg-afl-blue text-white py-8 px-6 shadow-lg">
       <h1 class="text-3xl font-bold mb-2">🏆 AFL Trophy Room</h1>
       <p class="text-blue-100">Record holders for every statistic</p>
     </header>
     
-    <main class="p-6">
+    <main class="app-main p-6">
       <div class="max-w-7xl mx-auto">
         <!-- Landing view: three headline Top 10 lists -->
         <section id="trophy-landing" class="mb-6">

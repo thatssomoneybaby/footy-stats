@@ -1,4 +1,10 @@
 :root {
+  /* App defaults */
+  --afl-blue: #0f365a;
+  --afl-blue-dark: #081f35;
+  --neutral-bg: #eef3f7;
+  --neutral-text: #1f2937;
+
   /* Adelaide */
   --adelaide-light-blue: #004B8D;
   --adelaide-dark-blue: #002B5C;
@@ -14,6 +20,10 @@
   --carlton-dark-navy: #031A29;
   --carlton-white: #FFFFFF;
 
+  /* Collingwood */
+  --collingwood-black: #111111;
+  --collingwood-white: #FFFFFF;
+
   /* Essendon */
   --essendon-red: #CC2031;
   --essendon-black: #010101;
@@ -26,6 +36,7 @@
 
   /* Fremantle */
   --fremantle-indigo: #2A0D54;
+  --fremantle-purple: #2A0D54;
   --fremantle-gray: #A2ACB4;
   --fremantle-black: #000000;
   --fremantle-white: #FFFFFF;

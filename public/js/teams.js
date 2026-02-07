@@ -404,13 +404,20 @@ async function showTeamRounds(team, year) {
   }
 
   const yearGames = seasonMatches[year];
-  const rounds = [...new Set(yearGames.map(g => g.round))].sort((a, b) => {
-    const aInt = parseInt(a), bInt = parseInt(b);
-    if (!isNaN(aInt) && !isNaN(bInt)) return aInt - bInt;
-    if (!isNaN(aInt)) return -1;
-    if (!isNaN(bInt)) return 1;
-    return a.localeCompare(b);
-  });
+  const ORDER = { EF: 101, QF: 102, SF: 103, PF: 104, GF: 105 };
+  const roundKey = (val) => {
+    if (val == null) return 0;
+    const v = String(val).trim().toUpperCase();
+    const m = v.match(/(\d+)/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (!Number.isNaN(n)) return n;
+    }
+    if (ORDER[v] != null) return ORDER[v];
+    return 1000;
+  };
+  const rounds = [...new Set(yearGames.map(g => g.round))]
+    .sort((a, b) => roundKey(a) - roundKey(b));
 
   teamRoundsDiv.innerHTML = '';
   teamRoundsDiv.classList.remove('hidden');

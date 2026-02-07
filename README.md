@@ -37,8 +37,7 @@ A modern web application for displaying AFL (Australian Football League) statist
 │   ├── trophy-room.html  # Trophy room
 │   └── years.html        # Years/matches page
 ├── db.js                 # Database configuration
-├── package.json          # Dependencies and scripts
-└── vercel.json          # Vercel deployment config
+└── package.json          # Dependencies and scripts
 ```
 
 ## 🛠 Setup & Development
